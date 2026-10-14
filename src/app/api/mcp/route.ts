@@ -153,6 +153,23 @@ const TOOLS = [
     },
   },
   {
+    name: "get_blog_post",
+    description: "Retrieve a specific blog post or engineering guide by its unique URL slug.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "The slug of the article (e.g. broadcast-playout-automation-nepal)" },
+      },
+      required: ["slug"],
+    },
+  },
+  {
     name: "create_blog_post",
     description: "Create and optionally publish a new insight or blog article on the website.",
     scopes: ["mcp:write", "admin"],
@@ -294,7 +311,8 @@ export async function POST(request: Request) {
       toolName === "list_services" ||
       toolName === "list_projects" ||
       toolName === "ask_simulcast_ai" ||
-      toolName === "list_blog_posts");
+      toolName === "list_blog_posts" ||
+      toolName === "get_blog_post");
 
   const auth = await verifyMcpAuth(request);
 
@@ -689,6 +707,55 @@ export async function POST(request: Request) {
             id,
             result: {
               content: [{ type: "text", text: JSON.stringify(allPosts, null, 2) }],
+            },
+          });
+        }
+
+        if (toolName === "get_blog_post") {
+          const slug = String(args.slug || "").trim().toLowerCase();
+          if (!slug) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "slug is required" },
+            });
+          }
+
+          let post: Record<string, unknown> | null = null;
+          try {
+            post = (await prisma.post.findUnique({
+              where: { slug },
+            })) as unknown as Record<string, unknown>;
+          } catch {}
+
+          if (!post) {
+            const guide = guides.find((g) => g.slug === slug);
+            if (guide) {
+              post = {
+                slug: guide.slug,
+                title: guide.title,
+                category: guide.category,
+                excerpt: guide.excerpt,
+                body: guide.paragraphs.join("\n\n"),
+                imageUrl: guide.image,
+                published: true,
+              };
+            }
+          }
+
+          if (!post) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: `Blog post or guide '${slug}' not found` },
+            });
+          }
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(post, null, 2) }],
             },
           });
         }
