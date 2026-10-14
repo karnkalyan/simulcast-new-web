@@ -31,9 +31,12 @@ The MCP server enforces strict authentication on all requests using **Bearer Tok
    ```
    *Granted full administrative access to tools, database operations, and live human escalation alerts.*
 
-2. **JWT-Encrypted Client Tokens**:
-   - Administrators can generate scoped, time-limited JWT tokens from the Admin Panel under **Admin Panel → MCP & Security** (`/admin/mcp`).
-   - Tokens can be assigned custom expiration periods (7 days, 30 days, 90 days, 1 year) and revoked with one click.
+2. **Active 1-Year JWT Token**:
+   ```
+   eyJhbGciOiJIUzI1NiJ9.eyJuYW1lIjoiTUNQIiwicm9sZSI6Ik1DUF9DTElFTlQiLCJzdWIiOiJNQ1AiLCJpYXQiOjE3OTIwMDIxMTUsImV4cCI6MTgyMzUzODExNX0.EVSjZQv-e02Zpo_aqhpK-EuSz7UqvmVD9hFOEg2_wxE
+   ```
+   *Valid for 1 Year (Expires October 2027) with MCP client permissions.*
+
 
 ### HTTP Header Formats
 
