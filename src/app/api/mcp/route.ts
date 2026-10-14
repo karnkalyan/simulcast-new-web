@@ -110,19 +110,6 @@ const RESOURCES = [
 
 // Handles JSON-RPC 2.0 MCP requests
 export async function POST(request: Request) {
-  // Verify JWT / MCP API token authentication
-  const auth = await verifyMcpAuth(request);
-  if (!auth.authenticated) {
-    return NextResponse.json(
-      {
-        jsonrpc: "2.0",
-        error: { code: -32002, message: `Authentication failed: ${auth.error}` },
-        id: null,
-      },
-      { status: 401 }
-    );
-  }
-
   let body: { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> };
   try {
     body = await request.json();
@@ -134,6 +121,24 @@ export async function POST(request: Request) {
   }
 
   const { jsonrpc = "2.0", id = null, method, params = {} } = body;
+
+  // ChatGPT MCP connects unauthenticated first for handshake, tools listing, and discovery
+  const isPublicMethod = method === "initialize" || method === "tools/list" || method === "resources/list" || method === "resources/read" || method === "ping";
+  const toolName = (params as { name?: string })?.name;
+  const isPublicToolCall = method === "tools/call" && (toolName === "get_site_settings" || toolName === "list_services" || toolName === "list_projects");
+
+  const auth = await verifyMcpAuth(request);
+
+  if (!isPublicMethod && !isPublicToolCall && !auth.authenticated) {
+    return NextResponse.json(
+      {
+        jsonrpc: "2.0",
+        error: { code: -32002, message: `Authentication required for this operation: ${auth.error || "Provide Authorization token"}` },
+        id,
+      },
+      { status: 401 }
+    );
+  }
 
   switch (method) {
     case "initialize":

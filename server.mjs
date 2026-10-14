@@ -86,7 +86,11 @@ wss.on('connection', async (ws, req) => {
       const msg = JSON.parse(raw.toString());
       const { id, method, params } = msg;
 
-      if (!authenticated && method !== 'auth') {
+      // Allow discovery and read-only tools without prior auth for ChatGPT and external clients
+      const isPublicMethod = method === 'initialize' || method === 'tools/list' || method === 'ping';
+      const isPublicTool = method === 'tools/call' && (params?.name === 'get_site_settings' || params?.name === 'list_services' || params?.name === 'list_projects');
+
+      if (!authenticated && !isPublicMethod && !isPublicTool && method !== 'auth') {
         return ws.send(JSON.stringify({
           jsonrpc: '2.0',
           id,

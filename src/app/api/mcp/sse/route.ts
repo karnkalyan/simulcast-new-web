@@ -5,10 +5,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const auth = await verifyMcpAuth(request);
-  if (!auth.authenticated) {
-    return NextResponse.json({ error: `Unauthorized: ${auth.error}` }, { status: 401 });
-  }
-
+  // ChatGPT connects to SSE to discover the POST endpoint; allow connection even if unauthenticated
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
