@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyMcpAuth } from "@/lib/mcp-auth";
-import { sendHumanEscalationNotification } from "@/lib/email";
+import { sendHumanEscalationNotification, sendChatTranscriptEmail } from "@/lib/email";
 import { generateGeminiReply } from "@/lib/gemini";
 import { guides } from "@/lib/editorial";
 import { fallbackSettings, staticServices, staticProjects } from "@/lib/constants";
@@ -13,9 +13,10 @@ const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 // Tool Definitions (Compliant with MCP 2024-11-05 & OpenAI Apps SDK 2025/2026 specs)
 const TOOLS = [
+  // 1. SITE SETTINGS, THEME & BRAND CONTROL
   {
     name: "get_site_settings",
-    description: "Get Simulcast Technologies official company details, slogans, contact information, and brand styling.",
+    description: "Get Simulcast Technologies official company details, slogans, contact information, theme colors, and brand styling.",
     scopes: ["mcp:read"],
     annotations: {
       readOnlyHint: true,
@@ -27,6 +28,46 @@ const TOOLS = [
       properties: {},
     },
   },
+  {
+    name: "update_site_settings",
+    description: "Update complete company details, theme colors, headlines, slogans, hero badges, contact information, social links, custom CSS, and chat greeting.",
+    scopes: ["admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        companyName: { type: "string", description: "Official company name" },
+        headline: { type: "string", description: "Main homepage headline" },
+        subheadline: { type: "string", description: "Subheadline description" },
+        slogan: { type: "string", description: "Company slogan / tagline" },
+        website: { type: "string", description: "Official website URL" },
+        publicEmail: { type: "string", description: "Public contact email" },
+        phone: { type: "string", description: "Official contact phone numbers" },
+        address: { type: "string", description: "Physical office address" },
+        facebook: { type: "string", description: "Facebook profile URL" },
+        linkedin: { type: "string", description: "LinkedIn company URL" },
+        youtube: { type: "string", description: "YouTube channel URL" },
+        instagram: { type: "string", description: "Instagram profile URL" },
+        seoDescription: { type: "string", description: "Meta SEO description for search engines" },
+        primaryColor: { type: "string", description: "Primary brand theme hex color (e.g. #2b0d3a or #0f172a)" },
+        secondaryColor: { type: "string", description: "Secondary accent hex color (e.g. #e11d72 or #0284c7)" },
+        heroBgColor: { type: "string", description: "Hero background theme color" },
+        heroBadgeText: { type: "string", description: "Eyebrow badge text on hero banner" },
+        heroEmphasis: { type: "string", description: "Hero emphasis gradient text" },
+        customCss: { type: "string", description: "Optional custom CSS styling override" },
+        enableChat: { type: "boolean", description: "Enable or disable website live chat widget" },
+        chatGreeting: { type: "string", description: "Initial greeting message from live chat" },
+        supportEmail: { type: "string", description: "Designated support email address" },
+        escalationEmail: { type: "string", description: "Escalation notification email address" },
+      },
+    },
+  },
+
+  // 2. SERVICES CRUD
   {
     name: "list_services",
     description: "List all broadcast engineering, custom software, AI automation, and IT infrastructure services offered by Simulcast.",
@@ -40,9 +81,97 @@ const TOOLS = [
       type: "object",
       properties: {
         category: { type: "string", description: "Optional filter category" },
+        includeDrafts: { type: "boolean", description: "Include unpublished draft services (default false)" },
       },
     },
   },
+  {
+    name: "get_service",
+    description: "Retrieve complete details, technical scope, and architecture specifications for a specific Simulcast service by its slug or ID.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "Service unique slug (e.g. broadcast-media, software-platforms, ai-automation)" },
+        id: { type: "string", description: "Service unique database ID" },
+      },
+    },
+  },
+  {
+    name: "create_service",
+    description: "Create and publish a new engineering, broadcast, software, or AI service on the website.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Service title" },
+        slug: { type: "string", description: "Unique URL slug (e.g. cloud-playout-systems)" },
+        summary: { type: "string", description: "Concise summary of the service offering" },
+        body: { type: "string", description: "Full technical description, architecture, and specifications" },
+        eyebrow: { type: "string", description: "Category/index eyebrow (e.g. 07 / CLOUD SYSTEMS)" },
+        icon: { type: "string", description: "Icon identifier (e.g. radio-tower, code-2, brain-circuit, server, blocks, headset)" },
+        imageUrl: { type: "string", description: "Cover image asset URL" },
+        sortOrder: { type: "integer", description: "Ordering rank on website (default 0)" },
+        published: { type: "boolean", description: "Whether service is published immediately (default true)" },
+      },
+      required: ["title", "slug", "summary", "body"],
+    },
+  },
+  {
+    name: "update_service",
+    description: "Update an existing service's title, description, body, icon, image, sort order, or publish status.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "Current slug of the service to update" },
+        id: { type: "string", description: "Database ID of the service to update" },
+        title: { type: "string", description: "Updated title" },
+        newSlug: { type: "string", description: "Updated slug if renaming URL" },
+        eyebrow: { type: "string", description: "Updated eyebrow label" },
+        summary: { type: "string", description: "Updated summary" },
+        body: { type: "string", description: "Updated body text" },
+        icon: { type: "string", description: "Updated icon identifier" },
+        imageUrl: { type: "string", description: "Updated image asset URL" },
+        sortOrder: { type: "integer", description: "Updated sort order" },
+        published: { type: "boolean", description: "Set published or draft status" },
+      },
+    },
+  },
+  {
+    name: "delete_service",
+    description: "Permanently delete a service from the website by its slug or ID.",
+    scopes: ["admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "Slug of the service to delete" },
+        id: { type: "string", description: "Database ID of the service to delete" },
+      },
+    },
+  },
+
+  // 3. PROJECTS CRUD
   {
     name: "list_projects",
     description: "Retrieve showcased real-world engineering projects deployed by Simulcast Technologies in Nepal.",
@@ -55,55 +184,15 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
+        category: { type: "string", description: "Filter projects by category" },
         featuredOnly: { type: "boolean", description: "Filter only featured projects" },
+        includeDrafts: { type: "boolean", description: "Include unpublished draft projects (default false)" },
       },
     },
   },
   {
-    name: "submit_inquiry",
-    description: "Submit a new customer inquiry or project lead to Simulcast Technologies.",
-    scopes: ["mcp:write"],
-    annotations: {
-      readOnlyHint: false,
-      destructiveHint: false,
-      openAiConfirmationRequired: true,
-    },
-    inputSchema: {
-      type: "object",
-      properties: {
-        name: { type: "string", description: "Contact full name" },
-        email: { type: "string", description: "Contact email address" },
-        organization: { type: "string", description: "Company or institution name" },
-        phone: { type: "string", description: "Contact phone number" },
-        interest: { type: "string", description: "Area of interest (e.g. Broadcast Playout, Software, AI)" },
-        message: { type: "string", description: "Project description or questions" },
-      },
-      required: ["name", "email", "message"],
-    },
-  },
-  {
-    name: "request_human_agent",
-    description: "Escalate visitor chat to human support engineers. Dispatches priority notification to the engineering support team.",
-    scopes: ["mcp:write"],
-    annotations: {
-      readOnlyHint: false,
-      destructiveHint: false,
-      openAiConfirmationRequired: true,
-    },
-    inputSchema: {
-      type: "object",
-      properties: {
-        sessionId: { type: "string", description: "Chat session ID" },
-        visitorName: { type: "string", description: "Visitor's name" },
-        visitorEmail: { type: "string", description: "Visitor's contact email" },
-        message: { type: "string", description: "The reason or question needing human assistance" },
-      },
-      required: ["message"],
-    },
-  },
-  {
-    name: "ask_simulcast_ai",
-    description: "Query the Simulcast AI Intelligence & Knowledge Engine with custom technical inquiries.",
+    name: "get_project",
+    description: "Retrieve complete details, architecture study, and specifications of a showcase engineering deployment.",
     scopes: ["mcp:read"],
     annotations: {
       readOnlyHint: true,
@@ -113,28 +202,83 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "The technical or business inquiry" },
+        slug: { type: "string", description: "Project unique slug (e.g. broadcast-operations-concept)" },
+        id: { type: "string", description: "Project database ID" },
       },
-      required: ["query"],
     },
   },
   {
-    name: "get_chat_history",
-    description: "Retrieve the full transcript of a chat session.",
-    scopes: ["mcp:read"],
+    name: "create_project",
+    description: "Publish a new showcase project or case study deployment.",
+    scopes: ["mcp:write", "admin"],
     annotations: {
-      readOnlyHint: true,
+      readOnlyHint: false,
       destructiveHint: false,
-      openAiConfirmationRequired: false,
+      openAiConfirmationRequired: true,
     },
     inputSchema: {
       type: "object",
       properties: {
-        sessionId: { type: "string", description: "Chat session ID to fetch" },
+        title: { type: "string", description: "Project title" },
+        slug: { type: "string", description: "Unique URL slug" },
+        category: { type: "string", description: "Category (e.g. Broadcast Engineering, Streaming Infrastructure, Data Center & Networks, Software & Automation)" },
+        summary: { type: "string", description: "High-level summary" },
+        body: { type: "string", description: "Detailed case study description" },
+        location: { type: "string", description: "Deployment location (e.g. Lalitpur, Nepal)" },
+        imageUrl: { type: "string", description: "Cover image URL" },
+        featured: { type: "boolean", description: "Feature on homepage (default false)" },
+        published: { type: "boolean", description: "Publish immediately or save as draft (default true)" },
+        sortOrder: { type: "integer", description: "Ordering priority (default 0)" },
       },
-      required: ["sessionId"],
+      required: ["title", "slug", "summary", "body"],
     },
   },
+  {
+    name: "update_project",
+    description: "Update an existing showcase project's title, summary, case study body, category, location, image, or featured status.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "Current slug of the project to update" },
+        id: { type: "string", description: "Database ID of the project to update" },
+        title: { type: "string", description: "Updated title" },
+        newSlug: { type: "string", description: "Updated slug if renaming URL" },
+        category: { type: "string", description: "Updated category" },
+        summary: { type: "string", description: "Updated summary" },
+        body: { type: "string", description: "Updated body content" },
+        location: { type: "string", description: "Updated location" },
+        imageUrl: { type: "string", description: "Updated cover image URL" },
+        featured: { type: "boolean", description: "Feature on homepage" },
+        published: { type: "boolean", description: "Publish or unpublish" },
+        sortOrder: { type: "integer", description: "Ordering priority" },
+      },
+    },
+  },
+  {
+    name: "delete_project",
+    description: "Permanently delete a showcase project by its slug or ID.",
+    scopes: ["admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "Slug of the project to delete" },
+        id: { type: "string", description: "Database ID of the project to delete" },
+      },
+    },
+  },
+
+  // 4. BLOGS / INSIGHTS / ARTICLES CRUD
   {
     name: "list_blog_posts",
     description: "List recent blog/insights posts with filtering by category and publish status.",
@@ -154,7 +298,7 @@ const TOOLS = [
   },
   {
     name: "get_blog_post",
-    description: "Retrieve a specific blog post or engineering guide by its unique URL slug.",
+    description: "Retrieve a specific blog post or engineering guide by its unique URL slug or ID.",
     scopes: ["mcp:read"],
     annotations: {
       readOnlyHint: true,
@@ -165,8 +309,8 @@ const TOOLS = [
       type: "object",
       properties: {
         slug: { type: "string", description: "The slug of the article (e.g. broadcast-playout-automation-nepal)" },
+        id: { type: "string", description: "Database ID of the article" },
       },
-      required: ["slug"],
     },
   },
   {
@@ -205,19 +349,95 @@ const TOOLS = [
       type: "object",
       properties: {
         slug: { type: "string", description: "Current slug of the post to update" },
+        id: { type: "string", description: "Database ID of the post to update" },
         title: { type: "string", description: "Updated title" },
+        newSlug: { type: "string", description: "Updated slug if renaming URL" },
         excerpt: { type: "string", description: "Updated excerpt" },
         body: { type: "string", description: "Updated full article body" },
         category: { type: "string", description: "Updated category" },
         imageUrl: { type: "string", description: "Updated image URL" },
         published: { type: "boolean", description: "Set published status" },
       },
-      required: ["slug"],
     },
   },
   {
-    name: "create_project",
-    description: "Publish a new showcase project or case study deployment.",
+    name: "delete_blog_post",
+    description: "Permanently delete a blog article or insight by slug or ID.",
+    scopes: ["admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "Slug of the article to delete" },
+        id: { type: "string", description: "Database ID of the article to delete" },
+      },
+    },
+  },
+
+  // 5. CONTACT INQUIRIES & LEADS
+  {
+    name: "submit_inquiry",
+    description: "Submit a new customer inquiry or project lead to Simulcast Technologies.",
+    scopes: ["mcp:write"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Contact full name" },
+        email: { type: "string", description: "Contact email address" },
+        organization: { type: "string", description: "Company or institution name" },
+        phone: { type: "string", description: "Contact phone number" },
+        interest: { type: "string", description: "Area of interest (e.g. Broadcast Playout, Software, AI)" },
+        message: { type: "string", description: "Project description or questions" },
+      },
+      required: ["name", "email", "message"],
+    },
+  },
+  {
+    name: "list_inquiries",
+    description: "List customer inquiries, sales leads, and contact submissions received through the website.",
+    scopes: ["mcp:read", "admin"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "string", description: "Filter by status: NEW, IN_PROGRESS, RESPONDED, CLOSED, or ALL" },
+        limit: { type: "integer", description: "Max number of records to return (default 25)" },
+      },
+    },
+  },
+  {
+    name: "get_inquiry",
+    description: "Retrieve complete details, message, and internal notes for a specific customer inquiry by ID.",
+    scopes: ["mcp:read", "admin"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Inquiry ID" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "update_inquiry",
+    description: "Update customer inquiry status (NEW, IN_PROGRESS, RESPONDED, CLOSED) and append internal follow-up notes.",
     scopes: ["mcp:write", "admin"],
     annotations: {
       readOnlyHint: false,
@@ -227,22 +447,90 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        title: { type: "string", description: "Project title" },
-        slug: { type: "string", description: "Unique URL slug" },
-        category: { type: "string", description: "Category (e.g. Broadcast Engineering, Streaming Infrastructure, Data Center & Networks, Software & Automation)" },
-        summary: { type: "string", description: "High-level summary" },
-        body: { type: "string", description: "Detailed case study description" },
-        location: { type: "string", description: "Deployment location (e.g. Lalitpur, Nepal)" },
-        imageUrl: { type: "string", description: "Cover image URL" },
-        featured: { type: "boolean", description: "Feature on homepage (default false)" },
+        id: { type: "string", description: "Inquiry ID" },
+        status: { type: "string", description: "New status (NEW, IN_PROGRESS, RESPONDED, CLOSED)" },
+        internalNotes: { type: "string", description: "Staff notes or follow-up summary" },
       },
-      required: ["title", "slug", "summary", "body"],
+      required: ["id"],
     },
   },
   {
-    name: "update_site_settings",
-    description: "Update company details, headlines, contact numbers, or theme colors on the website.",
+    name: "delete_inquiry",
+    description: "Permanently delete a customer contact inquiry by its ID.",
     scopes: ["admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Inquiry ID to delete" },
+      },
+      required: ["id"],
+    },
+  },
+
+  // 6. SIMULCAST LIVE CHAT SYSTEM
+  {
+    name: "list_chat_sessions",
+    description: "List website visitor live chat sessions, with visitor details, escalation status, and latest message previews.",
+    scopes: ["mcp:read", "admin"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "string", description: "Filter by status: ACTIVE, ESCALATED_HUMAN, CLOSED, or ALL" },
+        limit: { type: "integer", description: "Max sessions to return (default 25)" },
+      },
+    },
+  },
+  {
+    name: "get_chat_history",
+    description: "Retrieve the full transcript of a chat session, including visitor details and all messages in chronological order.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string", description: "Chat session ID to fetch" },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "send_chat_message",
+    description: "Send a live chat response to a website visitor in an active or escalated session from ChatGPT or a human representative.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string", description: "Target chat session ID" },
+        content: { type: "string", description: "Message content to send to visitor" },
+        sender: { type: "string", description: "Sender role: human_agent, bot, system (default human_agent)" },
+        senderName: { type: "string", description: "Display name (default 'Simulcast Support Representative')" },
+      },
+      required: ["sessionId", "content"],
+    },
+  },
+  {
+    name: "update_chat_session",
+    description: "Update chat session metadata, contact details (name, email, phone), escalation status, or staff summary.",
+    scopes: ["mcp:write", "admin"],
     annotations: {
       readOnlyHint: false,
       destructiveHint: false,
@@ -251,13 +539,72 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        headline: { type: "string", description: "Main homepage headline" },
-        subheadline: { type: "string", description: "Subheadline description" },
-        phone: { type: "string", description: "Official contact phone numbers" },
-        publicEmail: { type: "string", description: "Public contact email address" },
-        address: { type: "string", description: "Physical office address" },
-        heroEmphasis: { type: "string", description: "Hero emphasis gradient text" },
+        sessionId: { type: "string", description: "Chat session ID" },
+        status: { type: "string", description: "New status: ACTIVE, ESCALATED_HUMAN, or CLOSED" },
+        visitorName: { type: "string", description: "Visitor's name" },
+        visitorEmail: { type: "string", description: "Visitor's email address" },
+        visitorPhone: { type: "string", description: "Visitor's phone number" },
+        summary: { type: "string", description: "Staff summary of session" },
       },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "close_chat_session",
+    description: "Mark a live chat session as CLOSED and optionally email the complete transcript to support and the visitor.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string", description: "Chat session ID to close" },
+        sendTranscriptEmail: { type: "boolean", description: "Whether to dispatch email transcript to support team (default false)" },
+        summary: { type: "string", description: "Optional closing resolution summary" },
+      },
+      required: ["sessionId"],
+    },
+  },
+  {
+    name: "request_human_agent",
+    description: "Escalate visitor chat to human support engineers. Dispatches priority notification to the engineering support team.",
+    scopes: ["mcp:write"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string", description: "Chat session ID" },
+        visitorName: { type: "string", description: "Visitor's name" },
+        visitorEmail: { type: "string", description: "Visitor's contact email" },
+        message: { type: "string", description: "The reason or question needing human assistance" },
+      },
+      required: ["message"],
+    },
+  },
+
+  // 7. AI ENGINE
+  {
+    name: "ask_simulcast_ai",
+    description: "Query the Simulcast AI Intelligence & Knowledge Engine with custom technical inquiries.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "The technical or business inquiry" },
+      },
+      required: ["query"],
     },
   },
 ];
@@ -273,6 +620,24 @@ const RESOURCES = [
     uri: "simulcast://services",
     name: "Services Catalog",
     description: "Complete list of broadcast, software, and AI capabilities.",
+    mimeType: "application/json",
+  },
+  {
+    uri: "simulcast://projects",
+    name: "Projects Portfolio",
+    description: "Engineering case studies and broadcast deployments across Nepal.",
+    mimeType: "application/json",
+  },
+  {
+    uri: "simulcast://inquiries/summary",
+    name: "Recent Inquiries Summary",
+    description: "Summary of customer requests and lead pipeline.",
+    mimeType: "application/json",
+  },
+  {
+    uri: "simulcast://chat/active",
+    name: "Active Chat Sessions",
+    description: "Active visitor live chat conversations waiting for response.",
     mimeType: "application/json",
   },
 ];
@@ -309,10 +674,14 @@ export async function POST(request: Request) {
     method === "tools/call" &&
     (toolName === "get_site_settings" ||
       toolName === "list_services" ||
+      toolName === "get_service" ||
       toolName === "list_projects" ||
+      toolName === "get_project" ||
       toolName === "ask_simulcast_ai" ||
       toolName === "list_blog_posts" ||
-      toolName === "get_blog_post");
+      toolName === "get_blog_post" ||
+      toolName === "submit_inquiry" ||
+      toolName === "request_human_agent");
 
   const auth = await verifyMcpAuth(request);
 
@@ -433,7 +802,11 @@ export async function POST(request: Request) {
         });
       }
       if (uri === "simulcast://services") {
-        const services = await prisma.service.findMany({ where: { published: true } });
+        let services: Array<Record<string, unknown>> = [];
+        try {
+          services = (await prisma.service.findMany({ where: { published: true } })) as unknown as Array<Record<string, unknown>>;
+        } catch {}
+        const finalServices = services.length > 0 ? services : staticServices;
         return NextResponse.json({
           jsonrpc,
           id,
@@ -442,7 +815,69 @@ export async function POST(request: Request) {
               {
                 uri,
                 mimeType: "application/json",
-                text: JSON.stringify(services, null, 2),
+                text: JSON.stringify(finalServices, null, 2),
+              },
+            ],
+          },
+        });
+      }
+      if (uri === "simulcast://projects") {
+        let projects: Array<Record<string, unknown>> = [];
+        try {
+          projects = (await prisma.project.findMany({ where: { published: true } })) as unknown as Array<Record<string, unknown>>;
+        } catch {}
+        const finalProjects = projects.length > 0 ? projects : staticProjects;
+        return NextResponse.json({
+          jsonrpc,
+          id,
+          result: {
+            contents: [
+              {
+                uri,
+                mimeType: "application/json",
+                text: JSON.stringify(finalProjects, null, 2),
+              },
+            ],
+          },
+        });
+      }
+      if (uri === "simulcast://inquiries/summary") {
+        let inquiries: Array<Record<string, unknown>> = [];
+        try {
+          inquiries = (await prisma.inquiry.findMany({ take: 10, orderBy: { createdAt: "desc" } })) as unknown as Array<Record<string, unknown>>;
+        } catch {}
+        return NextResponse.json({
+          jsonrpc,
+          id,
+          result: {
+            contents: [
+              {
+                uri,
+                mimeType: "application/json",
+                text: JSON.stringify(inquiries, null, 2),
+              },
+            ],
+          },
+        });
+      }
+      if (uri === "simulcast://chat/active") {
+        let activeSessions: Array<Record<string, unknown>> = [];
+        try {
+          activeSessions = (await prisma.chatSession.findMany({
+            where: { status: { in: ["ACTIVE", "ESCALATED_HUMAN"] } },
+            take: 10,
+            orderBy: { updatedAt: "desc" },
+          })) as unknown as Array<Record<string, unknown>>;
+        } catch {}
+        return NextResponse.json({
+          jsonrpc,
+          id,
+          result: {
+            contents: [
+              {
+                uri,
+                mimeType: "application/json",
+                text: JSON.stringify(activeSessions, null, 2),
               },
             ],
           },
@@ -460,6 +895,9 @@ export async function POST(request: Request) {
       const args = ((params as { arguments?: Record<string, unknown> })?.arguments || {}) as Record<string, unknown>;
 
       try {
+        // ==========================================
+        // 1. SITE SETTINGS & BRAND / THEME
+        // ==========================================
         if (toolName === "get_site_settings") {
           let settings = null;
           try {
@@ -480,15 +918,80 @@ export async function POST(request: Request) {
           });
         }
 
+        if (toolName === "update_site_settings") {
+          const data: Record<string, unknown> = {};
+          if (typeof args.companyName === "string") data.companyName = args.companyName;
+          if (typeof args.headline === "string") data.headline = args.headline;
+          if (typeof args.subheadline === "string") data.subheadline = args.subheadline;
+          if (typeof args.slogan === "string") data.slogan = args.slogan;
+          if (typeof args.website === "string") data.website = args.website;
+          if (typeof args.publicEmail === "string") data.publicEmail = args.publicEmail;
+          if (typeof args.phone === "string") data.phone = args.phone;
+          if (typeof args.address === "string") data.address = args.address;
+          if (typeof args.facebook === "string") data.facebook = args.facebook;
+          if (typeof args.linkedin === "string") data.linkedin = args.linkedin;
+          if (typeof args.youtube === "string") data.youtube = args.youtube;
+          if (typeof args.instagram === "string") data.instagram = args.instagram;
+          if (typeof args.seoDescription === "string") data.seoDescription = args.seoDescription;
+          if (typeof args.primaryColor === "string") data.primaryColor = args.primaryColor;
+          if (typeof args.secondaryColor === "string") data.secondaryColor = args.secondaryColor;
+          if (typeof args.heroBgColor === "string") data.heroBgColor = args.heroBgColor;
+          if (typeof args.heroBadgeText === "string") data.heroBadgeText = args.heroBadgeText;
+          if (typeof args.heroEmphasis === "string") data.heroEmphasis = args.heroEmphasis;
+          if (typeof args.customCss === "string") data.customCss = args.customCss;
+          if (typeof args.enableChat === "boolean") data.enableChat = args.enableChat;
+          if (typeof args.chatGreeting === "string") data.chatGreeting = args.chatGreeting;
+          if (typeof args.supportEmail === "string") data.supportEmail = args.supportEmail;
+          if (typeof args.escalationEmail === "string") data.escalationEmail = args.escalationEmail;
+
+          const settings = await prisma.siteSettings.upsert({
+            where: { id: "main" },
+            update: data,
+            create: {
+              id: "main",
+              headline: String(data.headline || "Broadcasting. Software. AI Systems."),
+              subheadline: String(data.subheadline || "Simulcast Technologies integrated engineering solutions in Nepal."),
+              seoDescription: String(data.seoDescription || "Simulcast Technologies Pvt. Ltd."),
+              ...data,
+            },
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Site settings and brand theme updated successfully:\n${JSON.stringify(settings, null, 2)}` }],
+            },
+          });
+        }
+
+        // ==========================================
+        // 2. SERVICES CRUD
+        // ==========================================
         if (toolName === "list_services") {
+          const category = args.category ? String(args.category).toLowerCase().trim() : undefined;
+          const includeDrafts = Boolean(args.includeDrafts);
+          const whereClause: { published?: boolean } = {};
+          if (!includeDrafts) whereClause.published = true;
+
           let services: Array<Record<string, unknown>> = [];
           try {
             services = (await prisma.service.findMany({
-              where: { published: true },
+              where: whereClause,
               orderBy: { sortOrder: "asc" },
             })) as unknown as Array<Record<string, unknown>>;
           } catch {}
+
           const finalServices = services && services.length > 0 ? services : staticServices;
+          const filtered = category
+            ? finalServices.filter(
+                (s) =>
+                  String(s.title || "").toLowerCase().includes(category) ||
+                  String(s.eyebrow || "").toLowerCase().includes(category) ||
+                  String(s.summary || "").toLowerCase().includes(category)
+              )
+            : finalServices;
+
           return NextResponse.json({
             jsonrpc,
             id,
@@ -496,16 +999,179 @@ export async function POST(request: Request) {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(finalServices, null, 2),
+                  text: JSON.stringify(filtered, null, 2),
                 },
               ],
             },
           });
         }
 
+        if (toolName === "get_service") {
+          const target = String(args.slug || args.id || "").trim();
+          if (!target) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "slug or id is required" } });
+          }
+
+          let service = await prisma.service.findFirst({
+            where: {
+              OR: [{ slug: target }, { id: target }],
+            },
+          });
+
+          if (!service) {
+            const staticMatch = staticServices.find((s) => s.slug === target || s.id === target);
+            if (staticMatch) {
+              service = {
+                ...staticMatch,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              } as unknown as typeof service;
+            }
+          }
+
+          if (!service) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: `Service "${target}" not found` },
+            });
+          }
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(service, null, 2) }],
+            },
+          });
+        }
+
+        if (toolName === "create_service") {
+          const title = String(args.title || "").trim();
+          const slug = String(args.slug || "").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+          const summary = String(args.summary || "").trim();
+          const bodyText = String(args.body || "").trim();
+          const eyebrow = String(args.eyebrow || "").trim();
+          const icon = String(args.icon || "layers").trim();
+          const imageUrl = String(args.imageUrl || "/visuals/neon_himalayan_broadcast_control_room.webp").trim();
+          const sortOrder = typeof args.sortOrder === "number" ? args.sortOrder : 0;
+          const published = args.published !== false;
+
+          if (!title || !slug || !summary || !bodyText) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "Missing required fields: title, slug, summary, body" },
+            });
+          }
+
+          const service = await prisma.service.upsert({
+            where: { slug },
+            update: { title, summary, body: bodyText, eyebrow, icon, imageUrl, sortOrder, published },
+            create: { title, slug, summary, body: bodyText, eyebrow, icon, imageUrl, sortOrder, published },
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Service "${service.title}" successfully created/updated at /services/${service.slug} (ID: ${service.id}). Status: ${service.published ? "Published" : "Draft"}.` }],
+            },
+          });
+        }
+
+        if (toolName === "update_service") {
+          const target = String(args.slug || args.id || "").trim();
+          if (!target) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "slug or id is required to locate the service" } });
+          }
+
+          const existing = await prisma.service.findFirst({
+            where: { OR: [{ slug: target }, { id: target }] },
+          });
+
+          if (!existing) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: `Service "${target}" not found in database.` },
+            });
+          }
+
+          const dataToUpdate: Record<string, unknown> = {};
+          if (args.title) dataToUpdate.title = String(args.title);
+          if (args.newSlug) dataToUpdate.slug = String(args.newSlug).toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+          if (args.eyebrow !== undefined) dataToUpdate.eyebrow = String(args.eyebrow);
+          if (args.summary) dataToUpdate.summary = String(args.summary);
+          if (args.body) dataToUpdate.body = String(args.body);
+          if (args.icon) dataToUpdate.icon = String(args.icon);
+          if (args.imageUrl) dataToUpdate.imageUrl = String(args.imageUrl);
+          if (typeof args.sortOrder === "number") dataToUpdate.sortOrder = args.sortOrder;
+          if (typeof args.published === "boolean") dataToUpdate.published = args.published;
+
+          const updated = await prisma.service.update({
+            where: { id: existing.id },
+            data: dataToUpdate,
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Service "${updated.title}" (slug: ${updated.slug}) updated successfully.` }],
+            },
+          });
+        }
+
+        if (toolName === "delete_service") {
+          const target = String(args.slug || args.id || "").trim();
+          if (!target) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "slug or id is required" } });
+          }
+
+          const existing = await prisma.service.findFirst({
+            where: { OR: [{ slug: target }, { id: target }] },
+          });
+
+          if (!existing) {
+            const isStatic = staticServices.some((s) => s.slug === target || s.id === target);
+            if (isStatic) {
+              return NextResponse.json({
+                jsonrpc,
+                id,
+                error: { code: -32602, message: `"${target}" is a built-in static service from code and cannot be deleted from database.` },
+              });
+            }
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: `Service "${target}" not found.` },
+            });
+          }
+
+          await prisma.service.delete({ where: { id: existing.id } });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Service "${existing.title}" (ID: ${existing.id}, slug: ${existing.slug}) permanently deleted.` }],
+            },
+          });
+        }
+
+        // ==========================================
+        // 3. PROJECTS CRUD
+        // ==========================================
         if (toolName === "list_projects") {
           const featuredOnly = Boolean(args.featuredOnly);
-          const whereClause = featuredOnly ? { published: true, featured: true } : { published: true };
+          const category = args.category ? String(args.category).toLowerCase().trim() : undefined;
+          const includeDrafts = Boolean(args.includeDrafts);
+
+          const whereClause: { published?: boolean; featured?: boolean } = {};
+          if (!includeDrafts) whereClause.published = true;
+          if (featuredOnly) whereClause.featured = true;
+
           let projects: Array<Record<string, unknown>> = [];
           try {
             projects = (await prisma.project.findMany({
@@ -513,8 +1179,18 @@ export async function POST(request: Request) {
               orderBy: { sortOrder: "asc" },
             })) as unknown as Array<Record<string, unknown>>;
           } catch {}
+
           const fallback = featuredOnly ? staticProjects.filter((p) => p.featured) : staticProjects;
           const finalProjects = projects && projects.length > 0 ? projects : fallback;
+          const filtered = category
+            ? finalProjects.filter(
+                (p) =>
+                  String(p.category || "").toLowerCase().includes(category) ||
+                  String(p.title || "").toLowerCase().includes(category) ||
+                  String(p.summary || "").toLowerCase().includes(category)
+              )
+            : finalProjects;
+
           return NextResponse.json({
             jsonrpc,
             id,
@@ -522,148 +1198,172 @@ export async function POST(request: Request) {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(finalProjects, null, 2),
+                  text: JSON.stringify(filtered, null, 2),
                 },
               ],
             },
           });
         }
 
-        if (toolName === "submit_inquiry") {
-          const { name, email, organization = "", phone = "", interest = "", message } = args as Record<string, string>;
-          if (!name || !email || !message) {
+        if (toolName === "get_project") {
+          const target = String(args.slug || args.id || "").trim();
+          if (!target) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "slug or id is required" } });
+          }
+
+          let project = await prisma.project.findFirst({
+            where: {
+              OR: [{ slug: target }, { id: target }],
+            },
+          });
+
+          if (!project) {
+            const staticMatch = staticProjects.find((p) => p.slug === target || p.id === target);
+            if (staticMatch) {
+              project = {
+                ...staticMatch,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              } as unknown as typeof project;
+            }
+          }
+
+          if (!project) {
             return NextResponse.json({
               jsonrpc,
               id,
-              error: { code: -32602, message: "name, email, and message are required" },
+              error: { code: -32602, message: `Project "${target}" not found` },
             });
           }
 
-          const inquiry = await prisma.inquiry.create({
-            data: {
-              name,
-              email,
-              organization,
-              phone,
-              interest,
-              message,
-              internalNotes: `Submitted via MCP Client: ${auth.identity}`,
-            },
-          });
-
           return NextResponse.json({
             jsonrpc,
             id,
             result: {
-              content: [
-                {
-                  type: "text",
-                  text: `Inquiry successfully logged with ID #${inquiry.id}. The Simulcast engineering team will review it.`,
-                },
-              ],
+              content: [{ type: "text", text: JSON.stringify(project, null, 2) }],
             },
           });
         }
 
-        if (toolName === "request_human_agent") {
-          const { sessionId, visitorName = "MCP Client User", visitorEmail = "", message } = args as Record<string, string>;
-          let targetSessionId = sessionId;
+        if (toolName === "create_project") {
+          const title = String(args.title || "").trim();
+          const slug = String(args.slug || "").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+          const summary = String(args.summary || "").trim();
+          const bodyText = String(args.body || "").trim();
+          const category = String(args.category || "Broadcast Engineering").trim();
+          const location = String(args.location || "Nepal").trim();
+          const imageUrl = String(args.imageUrl || "/visuals/neon_broadcast_operations_centre.webp");
+          const featured = Boolean(args.featured);
+          const published = args.published !== false;
+          const sortOrder = typeof args.sortOrder === "number" ? args.sortOrder : 0;
 
-          if (!targetSessionId) {
-            const newSession = await prisma.chatSession.create({
-              data: {
-                visitorId: "mcp-agent-" + Math.random().toString(36).slice(2, 7),
-                visitorName,
-                visitorEmail,
-                status: "ESCALATED_HUMAN",
-                escalatedAt: new Date(),
-              },
-            });
-            targetSessionId = newSession.id;
-          } else {
-            await prisma.chatSession.update({
-              where: { id: targetSessionId },
-              data: { status: "ESCALATED_HUMAN", escalatedAt: new Date() },
-            });
-          }
-
-          await prisma.chatMessage.create({
-            data: {
-              sessionId: targetSessionId,
-              sender: "user",
-              senderName: visitorName,
-              content: `[Human Escalation Request via MCP]: ${message}`,
-            },
-          });
-
-          // Dispatch email alert to info@simulcast.com.np & support@simulcast.com.np
-          await sendHumanEscalationNotification({
-            sessionId: targetSessionId,
-            visitorName,
-            visitorEmail,
-            latestMessage: message,
-          });
-
-          return NextResponse.json({
-            jsonrpc,
-            id,
-            result: {
-              content: [
-                {
-                  type: "text",
-                  text: `Human escalation alert sent to engineering support team for session #${targetSessionId}. A representative is standing by.`,
-                },
-              ],
-            },
-          });
-        }
-
-        if (toolName === "ask_simulcast_ai") {
-          const query = String(args.query || "");
-          const reply = await generateGeminiReply([], query);
-          return NextResponse.json({
-            jsonrpc,
-            id,
-            result: {
-              content: [
-                {
-                  type: "text",
-                  text: reply.text,
-                },
-              ],
-            },
-          });
-        }
-
-        if (toolName === "get_chat_history") {
-          const sessionId = String(args.sessionId || "");
-          const session = await prisma.chatSession.findUnique({
-            where: { id: sessionId },
-            include: { messages: { orderBy: { createdAt: "asc" } } },
-          });
-
-          if (!session) {
+          if (!title || !slug || !summary || !bodyText) {
             return NextResponse.json({
               jsonrpc,
               id,
-              error: { code: -32602, message: `Session ${sessionId} not found` },
+              error: { code: -32602, message: "Missing required fields: title, slug, summary, body" },
             });
           }
+
+          const project = await prisma.project.upsert({
+            where: { slug },
+            update: { title, summary, body: bodyText, category, location, imageUrl, featured, published, sortOrder },
+            create: { title, slug, summary, body: bodyText, category, location, imageUrl, featured, published, sortOrder },
+          });
 
           return NextResponse.json({
             jsonrpc,
             id,
             result: {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(session, null, 2),
-                },
-              ],
+              content: [{ type: "text", text: `Project "${project.title}" created successfully at /projects/${project.slug} (ID: ${project.id}). Status: ${project.published ? "Published" : "Draft"}.` }],
             },
           });
         }
 
+        if (toolName === "update_project") {
+          const target = String(args.slug || args.id || "").trim();
+          if (!target) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "slug or id is required to locate the project" } });
+          }
+
+          const existing = await prisma.project.findFirst({
+            where: { OR: [{ slug: target }, { id: target }] },
+          });
+
+          if (!existing) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: `Project "${target}" not found in database.` },
+            });
+          }
+
+          const dataToUpdate: Record<string, unknown> = {};
+          if (args.title) dataToUpdate.title = String(args.title);
+          if (args.newSlug) dataToUpdate.slug = String(args.newSlug).toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+          if (args.category) dataToUpdate.category = String(args.category);
+          if (args.summary) dataToUpdate.summary = String(args.summary);
+          if (args.body) dataToUpdate.body = String(args.body);
+          if (args.location) dataToUpdate.location = String(args.location);
+          if (args.imageUrl) dataToUpdate.imageUrl = String(args.imageUrl);
+          if (typeof args.featured === "boolean") dataToUpdate.featured = args.featured;
+          if (typeof args.published === "boolean") dataToUpdate.published = args.published;
+          if (typeof args.sortOrder === "number") dataToUpdate.sortOrder = args.sortOrder;
+
+          const updated = await prisma.project.update({
+            where: { id: existing.id },
+            data: dataToUpdate,
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Project "${updated.title}" (slug: ${updated.slug}) updated successfully.` }],
+            },
+          });
+        }
+
+        if (toolName === "delete_project") {
+          const target = String(args.slug || args.id || "").trim();
+          if (!target) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "slug or id is required" } });
+          }
+
+          const existing = await prisma.project.findFirst({
+            where: { OR: [{ slug: target }, { id: target }] },
+          });
+
+          if (!existing) {
+            const isStatic = staticProjects.some((p) => p.slug === target || p.id === target);
+            if (isStatic) {
+              return NextResponse.json({
+                jsonrpc,
+                id,
+                error: { code: -32602, message: `"${target}" is a built-in static showcase project from code and cannot be deleted from database.` },
+              });
+            }
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: `Project "${target}" not found.` },
+            });
+          }
+
+          await prisma.project.delete({ where: { id: existing.id } });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Project "${existing.title}" (ID: ${existing.id}, slug: ${existing.slug}) permanently deleted.` }],
+            },
+          });
+        }
+
+        // ==========================================
+        // 4. BLOGS / INSIGHTS / ARTICLES CRUD
+        // ==========================================
         if (toolName === "list_blog_posts") {
           const category = args.category ? String(args.category).toLowerCase().trim() : undefined;
           const publishedOnly = args.publishedOnly !== false;
@@ -676,7 +1376,7 @@ export async function POST(request: Request) {
             dbPosts = (await prisma.post.findMany({
               where: whereClause,
               orderBy: { createdAt: "desc" },
-              take: 25,
+              take: 50,
             })) as unknown as Array<Record<string, unknown>>;
           } catch {}
 
@@ -712,26 +1412,27 @@ export async function POST(request: Request) {
         }
 
         if (toolName === "get_blog_post") {
-          const slug = String(args.slug || "").trim().toLowerCase();
-          if (!slug) {
+          const target = String(args.slug || args.id || "").trim().toLowerCase();
+          if (!target) {
             return NextResponse.json({
               jsonrpc,
               id,
-              error: { code: -32602, message: "slug is required" },
+              error: { code: -32602, message: "slug or id is required" },
             });
           }
 
           let post: Record<string, unknown> | null = null;
           try {
-            post = (await prisma.post.findUnique({
-              where: { slug },
+            post = (await prisma.post.findFirst({
+              where: { OR: [{ slug: target }, { id: target }] },
             })) as unknown as Record<string, unknown>;
           } catch {}
 
           if (!post) {
-            const guide = guides.find((g) => g.slug === slug);
+            const guide = guides.find((g) => g.slug === target);
             if (guide) {
               post = {
+                id: `guide-${guide.slug}`,
                 slug: guide.slug,
                 title: guide.title,
                 category: guide.category,
@@ -739,6 +1440,7 @@ export async function POST(request: Request) {
                 body: guide.paragraphs.join("\n\n"),
                 imageUrl: guide.image,
                 published: true,
+                createdAt: new Date().toISOString(),
               };
             }
           }
@@ -747,7 +1449,7 @@ export async function POST(request: Request) {
             return NextResponse.json({
               jsonrpc,
               id,
-              error: { code: -32602, message: `Blog post or guide '${slug}' not found` },
+              error: { code: -32602, message: `Blog post or guide '${target}' not found` },
             });
           }
 
@@ -807,7 +1509,7 @@ export async function POST(request: Request) {
               content: [
                 {
                   type: "text",
-                  text: `Successfully saved blog post "${post.title}" (slug: /insights/${post.slug}). Status: ${post.published ? "Published" : "Draft"}.`,
+                  text: `Successfully saved blog post "${post.title}" (slug: /insights/${post.slug}, ID: ${post.id}). Status: ${post.published ? "Published" : "Draft"}.`,
                 },
               ],
             },
@@ -815,13 +1517,22 @@ export async function POST(request: Request) {
         }
 
         if (toolName === "update_blog_post") {
-          const slug = String(args.slug || "").trim();
-          if (!slug) {
-            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "slug is required" } });
+          const target = String(args.slug || args.id || "").trim();
+          if (!target) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "slug or id is required" } });
+          }
+
+          const existing = await prisma.post.findFirst({
+            where: { OR: [{ slug: target }, { id: target }] },
+          });
+
+          if (!existing) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: `Post "${target}" not found in database.` } });
           }
 
           const dataToUpdate: Record<string, unknown> = {};
           if (args.title) dataToUpdate.title = String(args.title);
+          if (args.newSlug) dataToUpdate.slug = String(args.newSlug).toLowerCase().replace(/[^a-z0-9-]+/g, "-");
           if (args.excerpt) dataToUpdate.excerpt = String(args.excerpt);
           if (args.body) dataToUpdate.body = String(args.body);
           if (args.category) dataToUpdate.category = String(args.category);
@@ -832,7 +1543,7 @@ export async function POST(request: Request) {
           }
 
           const updated = await prisma.post.update({
-            where: { slug },
+            where: { id: existing.id },
             data: dataToUpdate,
           });
 
@@ -840,54 +1551,314 @@ export async function POST(request: Request) {
             jsonrpc,
             id,
             result: {
-              content: [{ type: "text", text: `Post "${updated.title}" updated successfully.` }],
+              content: [{ type: "text", text: `Post "${updated.title}" (slug: /insights/${updated.slug}) updated successfully.` }],
             },
           });
         }
 
-        if (toolName === "create_project") {
-          const title = String(args.title || "").trim();
-          const slug = String(args.slug || "").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-");
-          const summary = String(args.summary || "").trim();
-          const bodyText = String(args.body || "").trim();
-          const category = String(args.category || "Broadcast Engineering").trim();
-          const location = String(args.location || "Nepal").trim();
-          const imageUrl = String(args.imageUrl || "/visuals/neon_broadcast_operations_centre.webp");
-          const featured = Boolean(args.featured);
+        if (toolName === "delete_blog_post") {
+          const target = String(args.slug || args.id || "").trim().toLowerCase();
+          if (!target) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "slug or id is required" } });
+          }
 
-          const project = await prisma.project.upsert({
-            where: { slug },
-            update: { title, summary, body: bodyText, category, location, imageUrl, featured, published: true },
-            create: { title, slug, summary, body: bodyText, category, location, imageUrl, featured, published: true },
+          const existing = await prisma.post.findFirst({
+            where: { OR: [{ slug: target }, { id: target }] },
+          });
+
+          if (!existing) {
+            const isGuide = guides.some((g) => g.slug === target);
+            if (isGuide) {
+              return NextResponse.json({
+                jsonrpc,
+                id,
+                error: { code: -32602, message: `"${target}" is a built-in static editorial guide and cannot be deleted from database.` },
+              });
+            }
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: `Blog post "${target}" not found.` },
+            });
+          }
+
+          await prisma.post.delete({ where: { id: existing.id } });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Blog post "${existing.title}" (slug: /insights/${existing.slug}, ID: ${existing.id}) permanently deleted.` }],
+            },
+          });
+        }
+
+        // ==========================================
+        // 5. CONTACT INQUIRIES & LEADS
+        // ==========================================
+        if (toolName === "submit_inquiry") {
+          const { name, email, organization = "", phone = "", interest = "", message } = args as Record<string, string>;
+          if (!name || !email || !message) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "name, email, and message are required" },
+            });
+          }
+
+          const inquiry = await prisma.inquiry.create({
+            data: {
+              name,
+              email,
+              organization,
+              phone,
+              interest,
+              message,
+              internalNotes: `Submitted via MCP Client: ${auth.identity || "Anonymous Client"}`,
+            },
           });
 
           return NextResponse.json({
             jsonrpc,
             id,
             result: {
-              content: [{ type: "text", text: `Project "${project.title}" created successfully at /projects/${project.slug}.` }],
+              content: [
+                {
+                  type: "text",
+                  text: `Inquiry successfully logged with ID #${inquiry.id}. The Simulcast engineering team has been notified.`,
+                },
+              ],
             },
           });
         }
 
-        if (toolName === "update_site_settings") {
-          const data: Record<string, string> = {};
-          if (args.headline) data.headline = String(args.headline);
-          if (args.subheadline) data.subheadline = String(args.subheadline);
-          if (args.phone) data.phone = String(args.phone);
-          if (args.publicEmail) data.publicEmail = String(args.publicEmail);
-          if (args.address) data.address = String(args.address);
-          if (args.heroEmphasis) data.heroEmphasis = String(args.heroEmphasis);
+        if (toolName === "list_inquiries") {
+          const status = args.status ? String(args.status).toUpperCase().trim() : undefined;
+          const limit = typeof args.limit === "number" ? Math.min(Math.max(1, args.limit), 100) : 25;
+          const whereClause: { status?: "NEW" | "IN_PROGRESS" | "RESPONDED" | "CLOSED" } = {};
+          if (status && status !== "ALL") {
+            if (["NEW", "IN_PROGRESS", "RESPONDED", "CLOSED"].includes(status)) {
+              whereClause.status = status as "NEW" | "IN_PROGRESS" | "RESPONDED" | "CLOSED";
+            }
+          }
 
-          const settings = await prisma.siteSettings.upsert({
-            where: { id: "main" },
-            update: data,
-            create: {
-              id: "main",
-              headline: data.headline || "Software. Systems. Infrastructure.",
-              subheadline: data.subheadline || "Simulcast Technologies integrated engineering solutions in Nepal.",
-              seoDescription: "Simulcast Technologies Pvt. Ltd.",
-              ...data,
+          const inquiries = await prisma.inquiry.findMany({
+            where: whereClause,
+            orderBy: { createdAt: "desc" },
+            take: limit,
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(inquiries, null, 2) }],
+            },
+          });
+        }
+
+        if (toolName === "get_inquiry") {
+          const inquiryId = String(args.id || "").trim();
+          if (!inquiryId) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "id is required" } });
+          }
+
+          const inquiry = await prisma.inquiry.findUnique({
+            where: { id: inquiryId },
+          });
+
+          if (!inquiry) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: `Inquiry #${inquiryId} not found` } });
+          }
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(inquiry, null, 2) }],
+            },
+          });
+        }
+
+        if (toolName === "update_inquiry") {
+          const inquiryId = String(args.id || "").trim();
+          if (!inquiryId) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "id is required" } });
+          }
+
+          const dataToUpdate: { status?: "NEW" | "IN_PROGRESS" | "RESPONDED" | "CLOSED"; internalNotes?: string } = {};
+          if (args.status) {
+            const st = String(args.status).toUpperCase().trim();
+            if (["NEW", "IN_PROGRESS", "RESPONDED", "CLOSED"].includes(st)) {
+              dataToUpdate.status = st as "NEW" | "IN_PROGRESS" | "RESPONDED" | "CLOSED";
+            }
+          }
+          if (typeof args.internalNotes === "string") {
+            dataToUpdate.internalNotes = args.internalNotes;
+          }
+
+          const updated = await prisma.inquiry.update({
+            where: { id: inquiryId },
+            data: dataToUpdate,
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Inquiry #${updated.id} from ${updated.name} updated successfully. Status: ${updated.status}.` }],
+            },
+          });
+        }
+
+        if (toolName === "delete_inquiry") {
+          const inquiryId = String(args.id || "").trim();
+          if (!inquiryId) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "id is required" } });
+          }
+
+          await prisma.inquiry.delete({
+            where: { id: inquiryId },
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Inquiry #${inquiryId} permanently deleted.` }],
+            },
+          });
+        }
+
+        // ==========================================
+        // 6. SIMULCAST LIVE CHAT SYSTEM
+        // ==========================================
+        if (toolName === "list_chat_sessions") {
+          const status = args.status ? String(args.status).toUpperCase().trim() : undefined;
+          const limit = typeof args.limit === "number" ? Math.min(Math.max(1, args.limit), 100) : 25;
+          const whereClause: { status?: "ACTIVE" | "ESCALATED_HUMAN" | "CLOSED" } = {};
+          if (status && status !== "ALL") {
+            if (["ACTIVE", "ESCALATED_HUMAN", "CLOSED"].includes(status)) {
+              whereClause.status = status as "ACTIVE" | "ESCALATED_HUMAN" | "CLOSED";
+            }
+          }
+
+          const sessions = await prisma.chatSession.findMany({
+            where: whereClause,
+            include: {
+              messages: {
+                take: 1,
+                orderBy: { createdAt: "desc" },
+              },
+            },
+            orderBy: { updatedAt: "desc" },
+            take: limit,
+          });
+
+          const summaryList = sessions.map((s) => ({
+            id: s.id,
+            visitorId: s.visitorId,
+            visitorName: s.visitorName,
+            visitorEmail: s.visitorEmail,
+            visitorPhone: s.visitorPhone,
+            status: s.status,
+            createdAt: s.createdAt,
+            updatedAt: s.updatedAt,
+            escalatedAt: s.escalatedAt,
+            closedAt: s.closedAt,
+            summary: s.summary,
+            latestMessage: s.messages[0]
+              ? {
+                  sender: s.messages[0].sender,
+                  senderName: s.messages[0].senderName,
+                  content: s.messages[0].content,
+                  createdAt: s.messages[0].createdAt,
+                }
+              : null,
+          }));
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(summaryList, null, 2) }],
+            },
+          });
+        }
+
+        if (toolName === "get_chat_history") {
+          const sessionId = String(args.sessionId || "").trim();
+          if (!sessionId) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "sessionId is required" } });
+          }
+
+          const session = await prisma.chatSession.findUnique({
+            where: { id: sessionId },
+            include: { messages: { orderBy: { createdAt: "asc" } } },
+          });
+
+          if (!session) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: `Session ${sessionId} not found` },
+            });
+          }
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(session, null, 2),
+                },
+              ],
+            },
+          });
+        }
+
+        if (toolName === "send_chat_message") {
+          const sessionId = String(args.sessionId || "").trim();
+          const content = String(args.content || "").trim();
+          const sender = String(args.sender || "human_agent").trim();
+          const senderName = String(args.senderName || "Simulcast Support Representative").trim();
+
+          if (!sessionId || !content) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "sessionId and content are required" },
+            });
+          }
+
+          const session = await prisma.chatSession.findUnique({
+            where: { id: sessionId },
+          });
+
+          if (!session) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: `Chat session #${sessionId} not found.` },
+            });
+          }
+
+          const msg = await prisma.chatMessage.create({
+            data: {
+              sessionId,
+              sender,
+              senderName,
+              content,
+            },
+          });
+
+          await prisma.chatSession.update({
+            where: { id: sessionId },
+            data: {
+              status: session.status === "CLOSED" ? "ACTIVE" : session.status,
+              updatedAt: new Date(),
             },
           });
 
@@ -895,7 +1866,176 @@ export async function POST(request: Request) {
             jsonrpc,
             id,
             result: {
-              content: [{ type: "text", text: `Site settings updated successfully: ${JSON.stringify(settings)}` }],
+              content: [
+                {
+                  type: "text",
+                  text: `Message successfully posted to session #${sessionId} for ${session.visitorName} (sender: ${senderName}, ID: ${msg.id}):\n"${content}"`,
+                },
+              ],
+            },
+          });
+        }
+
+        if (toolName === "update_chat_session") {
+          const sessionId = String(args.sessionId || "").trim();
+          if (!sessionId) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "sessionId is required" } });
+          }
+
+          const dataToUpdate: Record<string, unknown> = {};
+          if (args.status) {
+            const st = String(args.status).toUpperCase().trim();
+            if (["ACTIVE", "ESCALATED_HUMAN", "CLOSED"].includes(st)) {
+              dataToUpdate.status = st;
+              if (st === "CLOSED") dataToUpdate.closedAt = new Date();
+              if (st === "ESCALATED_HUMAN") dataToUpdate.escalatedAt = new Date();
+            }
+          }
+          if (typeof args.visitorName === "string") dataToUpdate.visitorName = args.visitorName;
+          if (typeof args.visitorEmail === "string") dataToUpdate.visitorEmail = args.visitorEmail;
+          if (typeof args.visitorPhone === "string") dataToUpdate.visitorPhone = args.visitorPhone;
+          if (typeof args.summary === "string") dataToUpdate.summary = args.summary;
+
+          const updated = await prisma.chatSession.update({
+            where: { id: sessionId },
+            data: dataToUpdate,
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Chat session #${updated.id} updated. Status: ${updated.status}.` }],
+            },
+          });
+        }
+
+        if (toolName === "close_chat_session") {
+          const sessionId = String(args.sessionId || "").trim();
+          const sendTranscript = Boolean(args.sendTranscriptEmail);
+          const summary = typeof args.summary === "string" ? args.summary : undefined;
+
+          if (!sessionId) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "sessionId is required" } });
+          }
+
+          const session = await prisma.chatSession.findUnique({
+            where: { id: sessionId },
+            include: { messages: { orderBy: { createdAt: "asc" } } },
+          });
+
+          if (!session) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: `Chat session #${sessionId} not found.` } });
+          }
+
+          await prisma.chatSession.update({
+            where: { id: sessionId },
+            data: {
+              status: "CLOSED",
+              closedAt: new Date(),
+              summary: summary || session.summary,
+              transcriptSent: sendTranscript ? true : session.transcriptSent,
+            },
+          });
+
+          let emailStatus = "Not requested";
+          if (sendTranscript) {
+            try {
+              await sendChatTranscriptEmail({
+                sessionId: session.id,
+                visitorName: session.visitorName,
+                visitorEmail: session.visitorEmail,
+                messages: session.messages,
+              });
+              emailStatus = "Transcript email dispatched to support team";
+            } catch (err: unknown) {
+              emailStatus = `Transcript email failed: ${err instanceof Error ? err.message : String(err)}`;
+            }
+          }
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: `Chat session #${session.id} for "${session.visitorName}" closed successfully. Email delivery: ${emailStatus}.`,
+                },
+              ],
+            },
+          });
+        }
+
+        if (toolName === "request_human_agent") {
+          const { sessionId, visitorName = "MCP Client User", visitorEmail = "", message } = args as Record<string, string>;
+          let targetSessionId = sessionId;
+
+          if (!targetSessionId) {
+            const newSession = await prisma.chatSession.create({
+              data: {
+                visitorId: "mcp-agent-" + Math.random().toString(36).slice(2, 7),
+                visitorName,
+                visitorEmail,
+                status: "ESCALATED_HUMAN",
+                escalatedAt: new Date(),
+              },
+            });
+            targetSessionId = newSession.id;
+          } else {
+            await prisma.chatSession.update({
+              where: { id: targetSessionId },
+              data: { status: "ESCALATED_HUMAN", escalatedAt: new Date() },
+            });
+          }
+
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: targetSessionId,
+              sender: "user",
+              senderName: visitorName,
+              content: `[Human Escalation Request via MCP]: ${message}`,
+            },
+          });
+
+          // Dispatch email alert to info@simulcast.com.np & support@simulcast.com.np
+          await sendHumanEscalationNotification({
+            sessionId: targetSessionId,
+            visitorName,
+            visitorEmail,
+            latestMessage: message,
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: `Human escalation alert sent to engineering support team for session #${targetSessionId}. A representative is standing by.`,
+                },
+              ],
+            },
+          });
+        }
+
+        // ==========================================
+        // 7. AI ENGINE
+        // ==========================================
+        if (toolName === "ask_simulcast_ai") {
+          const query = String(args.query || "");
+          const reply = await generateGeminiReply([], query);
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: reply.text,
+                },
+              ],
             },
           });
         }
@@ -953,4 +2093,3 @@ export async function OPTIONS() {
     },
   });
 }
-

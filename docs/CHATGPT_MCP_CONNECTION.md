@@ -13,7 +13,7 @@ When configuring the connector in ChatGPT (**Settings → Connected apps** or **
 | ChatGPT Form Field | Recommended Value (OAuth) | Fast Value (No Auth) |
 | :--- | :--- | :--- |
 | **Name** | `Simulcast Technologies` | `Simulcast Technologies` |
-| **Description** *(optional)* | `Simulcast broadcast engineering, software platforms, inquiry logging, and AI consulting.` | `Simulcast broadcast & software inquiries.` |
+| **Description** *(optional)* | `Simulcast broadcast engineering, software platforms, inquiry logging, live chat, and AI consulting.` | `Simulcast broadcast & software inquiries.` |
 | **Connection / Server URL** | `https://www.simulcast.com.np/api/mcp` | `https://www.simulcast.com.np/api/mcp` |
 | **Authentication** | **OAuth** | **No authentication** |
 | **Client registration** | **Dynamic Client Registration (DCR)** *(Automated)* OR **User-Defined OAuth Client** | — |
@@ -50,105 +50,81 @@ eyJhbGciOiJIUzI1NiJ9.eyJuYW1lIjoiTUNQIiwicm9sZSI6Ik1DUF9DTElFTlQiLCJzdWIiOiJNQ1A
 simulcast_master_mcp_api_key_2026_sec
 ```
 
+---
+
+## 3. Complete MCP Tool Suite (29 Tools)
+
+ChatGPT can control the entire website, manage database records, respond to live website visitors, and alter site styling using the 29 tools below:
+
+### A. Site Settings, Theme & Brand Control
+1. **`get_site_settings`**: View company profile, headlines, slogans, theme colors, hero badges, contact info, and social links.
+2. **`update_site_settings`**: Full brand and theme control. Allows updating:
+   * `companyName`, `headline`, `subheadline`, `slogan`, `website`, `publicEmail`, `phone`, `address`
+   * Social links: `facebook`, `linkedin`, `youtube`, `instagram`
+   * Theme styling: `primaryColor`, `secondaryColor`, `heroBgColor`, `heroBadgeText`, `heroEmphasis`, `customCss`
+   * Chat settings: `enableChat`, `chatGreeting`, `supportEmail`, `escalationEmail`
+
+### B. Services Management (Full CRUD)
+3. **`list_services`**: List all broadcast engineering, custom software, and AI services (supports `category` filter and `includeDrafts`).
+4. **`get_service`**: Retrieve complete technical description, specifications, and architecture by `slug` or `id`.
+5. **`create_service`**: Add and publish a new engineering service (`title`, `slug`, `summary`, `body`, `eyebrow`, `icon`, `imageUrl`, `sortOrder`, `published`).
+6. **`update_service`**: Modify an existing service by `slug` or `id` (update title, slug, description, body, icon, image, ordering, or publish status).
+7. **`delete_service`**: Permanently remove a service from the database by `slug` or `id` (destructive action requiring confirmation).
+
+### C. Projects & Case Studies (Full CRUD)
+8. **`list_projects`**: Retrieve showcase engineering projects deployed in Nepal (supports `category`, `featuredOnly`, and `includeDrafts`).
+9. **`get_project`**: Retrieve detailed architecture study and specifications by `slug` or `id`.
+10. **`create_project`**: Publish a new case study deployment (`title`, `slug`, `summary`, `body`, `category`, `location`, `imageUrl`, `featured`, `published`, `sortOrder`).
+11. **`update_project`**: Modify an existing project by `slug` or `id`.
+12. **`delete_project`**: Permanently remove a project by `slug` or `id` (destructive action requiring confirmation).
+
+### D. Blog Posts & Insights (Full CRUD)
+13. **`list_blog_posts`**: List all published articles and editorial engineering guides (supports `category` and `publishedOnly`).
+14. **`get_blog_post`**: Retrieve the full article body and metadata by `slug` or `id`.
+15. **`create_blog_post`**: Author and publish a new insight or article (`title`, `slug`, `excerpt`, `body`, `category`, `imageUrl`, `published`).
+16. **`update_blog_post`**: Edit existing article title, excerpt, body, category, image, or publish status by `slug` or `id`.
+17. **`delete_blog_post`**: Permanently remove a blog article by `slug` or `id` (destructive action requiring confirmation).
+
+### E. Customer Inquiries & Leads (Full CRUD)
+18. **`submit_inquiry`**: Log a customer inquiry or sales lead (`name`, `email`, `organization`, `phone`, `interest`, `message`).
+19. **`list_inquiries`**: Review all customer contact queries and sales leads (supports status filter: `NEW`, `IN_PROGRESS`, `RESPONDED`, `CLOSED`, or `ALL`).
+20. **`get_inquiry`**: View complete inquiry details, customer message, and internal staff notes by `id`.
+21. **`update_inquiry`**: Update inquiry status and append internal follow-up notes by `id`.
+22. **`delete_inquiry`**: Delete an inquiry record by `id` (destructive action requiring confirmation).
+
+### F. Simulcast Live Chat System & Real-Time Messaging
+23. **`list_chat_sessions`**: Monitor visitor live chat sessions, including visitor contact details, escalation status, and latest message previews (filter by `ACTIVE`, `ESCALATED_HUMAN`, `CLOSED`, or `ALL`).
+24. **`get_chat_history`**: Retrieve the complete conversation transcript and timeline for any chat session by `sessionId`.
+25. **`send_chat_message`**: Send a live reply directly into a visitor's chat session from ChatGPT as a support agent (`sessionId`, `content`, `sender`: "human_agent" or "bot", `senderName`). The live visitor sees the reply immediately!
+26. **`update_chat_session`**: Update session metadata, visitor details, status, or staff resolution notes by `sessionId`.
+27. **`close_chat_session`**: Close a chat session and optionally email the complete transcript to support and the visitor.
+28. **`request_human_agent`**: Escalate a visitor chat session to engineering staff, triggering instant email notifications to `info@simulcast.com.np` and `support@simulcast.com.np`.
+
+### G. AI Intelligence Engine
+29. **`ask_simulcast_ai`**: Direct technical inquiry with Simulcast's embedded Gemini AI knowledge engine.
 
 ---
 
-## 2. Authentication Methods Explained
+## 4. Example Prompts to Use with ChatGPT
 
-### Option A: OAuth with Interactive Login Dialog (Plugin Experience)
-* **What it enables**: All 12 tools, including administrative tasks, creating blog posts, updating site settings, inquiry dispatch, and human escalation.
-* **How it works**:
-  1. ChatGPT opens a secure browser popup to `https://www.simulcast.com.np/api/oauth/authorize`.
-  2. The popup loads the branded **Simulcast Plugin Authorization Dialog** (`/oauth/authorize`).
-  3. **User Authentication**:
-     * If the user is already logged into Simulcast, it displays their verified email (`admin@simulcast.com.np`) and allows instant authorization.
-     * If not logged in, the user enters their Admin Email & Password (or MCP Master Key).
-  4. The user clicks **Authorize & Connect**.
-  5. The dialog redirects back to ChatGPT's callback URL with an authorization code tied to that user's identity.
-  6. ChatGPT POSTs this code to `/api/oauth/token` and receives a personalized 30-day Bearer token.
-  7. ChatGPT confirms **"Connected to Simulcast Technologies"**!
+Once connected to Simulcast Technologies, you can issue conversational instructions such as:
 
-### Option B: No Authentication (Fastest — Public Read-Only)
-* **What it enables**: Public tools without credentials:
-  * `get_site_settings`
-  * `list_services`
-  * `list_projects`
-  * `resources/list` (`simulcast://overview`, `simulcast://services`)
-  * `resources/read`
-* Tools requiring write privileges (`create_blog_post`, `update_site_settings`) will return an authentication challenge if invoked without a token.
-
----
-
-## 3. Server Endpoints Reference
-
-| Purpose | URL | Method | Auth / Behavior |
-| :--- | :--- | :--- | :--- |
-| **MCP JSON-RPC 2.0** | `https://www.simulcast.com.np/api/mcp` | `POST`, `GET`, `OPTIONS` | Public for discovery & queries; Bearer for admin |
-| **OAuth 2.0 Authorize UI** | `https://www.simulcast.com.np/oauth/authorize` | `GET` | Interactive Login & Consent Dialog |
-| **OAuth 2.0 Authorize API** | `https://www.simulcast.com.np/api/oauth/authorize` | `GET`, `POST`, `OPTIONS` | Validates credentials & redirects |
-| **OAuth 2.0 Dynamic Client Registration (DCR)** | `https://www.simulcast.com.np/api/oauth/register` | `POST`, `OPTIONS` | RFC 7591 automated registration |
-| **OAuth 2.0 Token** | `https://www.simulcast.com.np/api/oauth/token` | `POST`, `GET`, `OPTIONS` | Grants 30-day JWT tied to user |
-| **OAuth Discovery** | `https://www.simulcast.com.np/.well-known/oauth-authorization-server` | `GET` | RFC 8414 metadata |
-| **OpenID Discovery** | `https://www.simulcast.com.np/.well-known/openid-configuration` | `GET` | OIDC metadata |
-
----
-
-## 4. Available MCP Tools Reference
-
-1. **`get_site_settings`** — Retrieves official brand details, headlines, phone numbers, email, and office address.
-2. **`list_services`** — Lists broadcast engineering, custom software, AI, and telecom infrastructure services (filter by `category`).
-3. **`list_projects`** — Retrieves showcase projects deployed in Nepal (filter by `featuredOnly`).
-4. **`submit_inquiry`** — Records customer inquiries (`name`, `email`, `organization`, `phone`, `interest`, `message`) into the system.
-5. **`request_human_agent`** — Dispatches emergency escalation emails to `info@simulcast.com.np` & `support@simulcast.com.np`.
-6. **`ask_simulcast_ai`** — Queries the Gemini 2.5 Flash knowledge engine with technical inquiries.
-7. **`get_chat_history`** — Fetches full message transcripts by `sessionId`.
-8. **`list_blog_posts`** — Queries articles and insights by category and publish status.
-9. **`create_blog_post`** — Creates and publishes insights on the website *(admin only)*.
-10. **`update_blog_post`** — Updates existing blog posts by slug *(admin only)*.
-11. **`create_project`** — Publishes a new case study or showcase project *(admin only)*.
-12. **`update_site_settings`** — Updates homepage headlines, phone, email, and office address *(admin only)*.
-
----
-
-## 5. Testing on Localhost
-
-If developing locally prior to pushing to `simulcast.com.np`:
-ChatGPT cannot reach `http://localhost:3000` because OpenAI’s servers run in the cloud.
-
-1. Start your local server:
-   ```bash
-   npm run dev
-   ```
-2. In a separate terminal, expose port 3000 via a tunnel:
-   ```bash
-   npx ngrok http 3000
-   ```
-3. Use the resulting HTTPS tunnel URL in ChatGPT (e.g. `https://xxxx.ngrok-free.app/api/mcp` and `https://xxxx.ngrok-free.app/api/oauth/...`).
-
----
-
-## 6. OpenAI MCP Risks & Safety Compliance (2026 Standards)
-
-When adding a custom MCP server, ChatGPT displays:
-> *"Custom MCP servers introduce risk. [Learn more](https://platform.openai.com/docs/mcp#risks-and-safety)*  
-> *Only connect to MCP servers you trust. An untrusted server may access or steal information shared through app use, or trick ChatGPT into using tools in unintended ways, including changing or deleting data."*
-
-### How to complete this step in ChatGPT:
-1. Select the checkbox: **"I understand and want to continue"**.
-2. Click **Connect** or **Save**.
-
-### How Simulcast MCP Server Complies with OpenAI Safety Standards:
-1. **OAuth Scopes & Least Privilege**: Every tool advertises its explicit scope (`mcp:read`, `mcp:write`, or `admin`). ChatGPT only requests and grants the scopes necessary for selected tools.
-2. **Explicit Human Confirmation (`openAiConfirmationRequired`)**: Mutating tools (creating blog posts, submitting leads, updating site details, sending emergency escalations) declare confirmation requirements, so ChatGPT asks for your approval before writing data.
-3. **Non-Destructive Hints**: All tools advertise `destructiveHint: false` ensuring tools do not execute unrecoverable deletions.
-4. **Token Encryption & Revocation**: All API tokens are HS256-signed JWTs or database-tracked keys that can be revoked immediately from the `/admin/mcp` dashboard.
-
----
-
-## 7. Troubleshooting
-
-* **"Failed to connect / SSL error"**: Ensure your base URL uses `https://` and is publicly reachable.
-* **"OIDC userinfo error"**: Make sure **OIDC enabled** is toggled **OFF** in ChatGPT.
-* **"CORS error"**: The server includes `OPTIONS` preflight handlers on `/api/mcp` and `/api/oauth/token` with `Access-Control-Allow-Origin: *`.
-* **"Unauthorized on tool execution"**: Ensure **Token endpoint auth method** is set to `client_secret_post` and the default scopes include `mcp:read mcp:write admin`.
-
+* **Site & Theme:**
+  * *"Change our hero gradient emphasis to 'Next-Generation Broadcast & AI Infrastructure' and change the primary brand color to #1e1b4b."*
+  * *"What are our current public contact details and social media links?"*
+* **Services:**
+  * *"List all our broadcast services."*
+  * *"Add a new service: 'Cloud Playout & Disaster Recovery' with slug 'cloud-playout-dr'."*
+  * *"Update the summary for the 'software-platforms' service to highlight custom Next.js web applications."*
+* **Blog Posts:**
+  * *"Show me all our blog posts and draft articles."*
+  * *"Create a new blog post titled 'Building 24/7 Redundant Playout in Nepal' with slug 'building-247-redundant-playout-nepal'."*
+  * *"Delete the draft blog post with slug 'test-draft'."*
+* **Customer Leads:**
+  * *"Check all new contact inquiries from today."*
+  * *"Mark inquiry #cm12345 as IN_PROGRESS and add a note that an engineer called them back."*
+* **Live Chat:**
+  * *"Check if there are any active or escalated chat sessions waiting for assistance."*
+  * *"Show me the full transcript of chat session #cm89012."*
+  * *"Reply to visitor John in session #cm89012 saying: 'Hello John, our senior broadcast engineer will arrive on-site tomorrow at 10 AM. Is there anything else you need?'"*
+  * *"Close chat session #cm89012 and email the transcript to support."*
