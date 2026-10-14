@@ -17,9 +17,9 @@ When configuring the connector in ChatGPT (**Settings → Connected apps** or **
 | **Connection / Server URL** | `https://www.simulcast.com.np/api/mcp` | `https://www.simulcast.com.np/api/mcp` |
 | **Authentication** | **OAuth** | **No authentication** |
 | **Client registration** | **User-Defined OAuth Client** | — |
-| **OAuth client ID** | `chatgpt-mcp` *(or `simulcast-chatgpt`)* | — |
-| **OAuth client secret** | `simulcast_master_mcp_api_key_2026_sec` | — |
-| **Token endpoint auth method** | `client_secret_post` *(or `client_secret_basic`)* | — |
+| **OAuth client ID** | `chatgpt-mcp` | — |
+| **OAuth client secret** | `eyJhbGciOiJIUzI1NiJ9.eyJuYW1lIjoiTUNQIiwicm9sZSI6Ik1DUF9DTElFTlQiLCJzdWIiOiJNQ1AiLCJpYXQiOjE3OTIwMDIxMTUsImV4cCI6MTgyMzUzODExNX0.EVSjZQv-e02Zpo_aqhpK-EuSz7UqvmVD9hFOEg2_wxE` *(or `simulcast_master_mcp_api_key_2026_sec`)* | — |
+| **Token endpoint auth method** | `client_secret_post` *(or `none`)* | — |
 | **Default scopes** | `mcp:read mcp:write admin` | — |
 | **Base scopes** | `mcp:read` | — |
 | **Auth URL** | `https://www.simulcast.com.np/api/oauth/authorize` | — |
@@ -28,6 +28,28 @@ When configuring the connector in ChatGPT (**Settings → Connected apps** or **
 | **Authorization server base** | `https://www.simulcast.com.np` *(or empty)* | — |
 | **Resource** | `https://www.simulcast.com.np/api/mcp` *(or empty)* | — |
 | **OpenID support (OIDC enabled)** | **OFF / Disabled** | — |
+
+---
+
+## 2. Active Authentication Tokens & Secrets
+
+### 1-Year JWT API Token (Generated & Active)
+```
+eyJhbGciOiJIUzI1NiJ9.eyJuYW1lIjoiTUNQIiwicm9sZSI6Ik1DUF9DTElFTlQiLCJzdWIiOiJNQ1AiLCJpYXQiOjE3OTIwMDIxMTUsImV4cCI6MTgyMzUzODExNX0.EVSjZQv-e02Zpo_aqhpK-EuSz7UqvmVD9hFOEg2_wxE
+```
+* **Client Name**: `MCP`
+* **Role**: `MCP_CLIENT`
+* **Expiration**: Valid through October 2027 (1 Year)
+* **Usage**:
+  * For **ChatGPT Custom GPT Action (API Key)**: Auth Type `Bearer`, Key: *(paste token above)*
+  * For **ChatGPT MCP Connector**: Can be used as `OAuth client secret`
+  * For **Direct HTTP / cURL**: `Authorization: Bearer <token>` or `x-mcp-key: <token>`
+
+### Master Root Key (Permanent Admin)
+```
+simulcast_master_mcp_api_key_2026_sec
+```
+
 
 ---
 
