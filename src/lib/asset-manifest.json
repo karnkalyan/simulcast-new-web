@@ -1,0 +1,219 @@
+[
+  {
+    "slug": "neon_himalayan_broadcast_control_room",
+    "group": "broadcast",
+    "src": "/visuals/neon_himalayan_broadcast_control_room.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "neon_broadcast_operations_centre",
+    "group": "broadcast",
+    "src": "/visuals/neon_broadcast_operations_centre.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_neon_newsroom_studio",
+    "group": "broadcast",
+    "src": "/visuals/futuristic_neon_newsroom_studio.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "neon_arena_control_room_concert",
+    "group": "broadcast",
+    "src": "/visuals/neon_arena_control_room_concert.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "neon_ai_broadcast_control_room",
+    "group": "broadcast",
+    "src": "/visuals/neon_ai_broadcast_control_room.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "neon_broadcast_command_centre",
+    "group": "broadcast",
+    "src": "/visuals/neon_broadcast_command_centre.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "neon_broadcast_control_centre",
+    "group": "broadcast",
+    "src": "/visuals/neon_broadcast_control_centre.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "neon_himalayan_satellite_uplink_at_sunset",
+    "group": "broadcast",
+    "src": "/visuals/neon_himalayan_satellite_uplink_at_sunset.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "neon_global_command_centre",
+    "group": "broadcast",
+    "src": "/visuals/neon_global_command_centre.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "neon_broadcast_data_centre_control_room",
+    "group": "broadcast",
+    "src": "/visuals/neon_broadcast_data_centre_control_room.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_broadcast_editing_studio",
+    "group": "software",
+    "src": "/visuals/futuristic_broadcast_editing_studio.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "3d_isometric_media_cloud_workspace",
+    "group": "software",
+    "src": "/visuals/3d_isometric_media_cloud_workspace.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_ai_workflow_pipeline",
+    "group": "software",
+    "src": "/visuals/futuristic_ai_workflow_pipeline.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "isometric_purple_streaming_workflow_dashboard",
+    "group": "software",
+    "src": "/visuals/isometric_purple_streaming_workflow_dashboard.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_neon_analytics_control_centre",
+    "group": "software",
+    "src": "/visuals/futuristic_neon_analytics_control_centre.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "cloud_streaming_network_ecosystem",
+    "group": "software",
+    "src": "/visuals/cloud_streaming_network_ecosystem.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_cloud_streaming_control_room",
+    "group": "software",
+    "src": "/visuals/futuristic_cloud_streaming_control_room.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_cloud_streaming_network",
+    "group": "software",
+    "src": "/visuals/futuristic_cloud_streaming_network.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_purple_lit_data_centre",
+    "group": "infrastructure",
+    "src": "/visuals/futuristic_purple_lit_data_centre.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_cloud_security_infrastructure",
+    "group": "infrastructure",
+    "src": "/visuals/futuristic_cloud_security_infrastructure.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "secure_network_shield_and_servers",
+    "group": "infrastructure",
+    "src": "/visuals/secure_network_shield_and_servers.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "cloud_network_operations_hub",
+    "group": "infrastructure",
+    "src": "/visuals/cloud_network_operations_hub.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_av_integration_network_hub",
+    "group": "infrastructure",
+    "src": "/visuals/futuristic_av_integration_network_hub.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "isometric_broadcast_technology_network",
+    "group": "infrastructure",
+    "src": "/visuals/isometric_broadcast_technology_network.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_consulting_team_workspace",
+    "group": "services",
+    "src": "/visuals/futuristic_consulting_team_workspace.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "24_7_customer_support_hub",
+    "group": "services",
+    "src": "/visuals/24_7_customer_support_hub.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "modern_support_network_illustration",
+    "group": "services",
+    "src": "/visuals/modern_support_network_illustration.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "collaborative_purple_tech_deployment_workflow",
+    "group": "services",
+    "src": "/visuals/collaborative_purple_tech_deployment_workflow.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_purple_broadcast_control_room",
+    "group": "services",
+    "src": "/visuals/futuristic_purple_broadcast_control_room.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "futuristic_purple_analytics_dashboard_ecosystem",
+    "group": "services",
+    "src": "/visuals/futuristic_purple_analytics_dashboard_ecosystem.webp",
+    "width": 1440,
+    "height": 810
+  },
+  {
+    "slug": "neon_glass_chevron_techscape",
+    "group": "services",
+    "src": "/visuals/neon_glass_chevron_techscape.webp",
+    "width": 1440,
+    "height": 810
+  }
+]

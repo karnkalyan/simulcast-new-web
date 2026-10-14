@@ -1,0 +1,3 @@
+'use client';import * as AccordionPrimitive from '@radix-ui/react-accordion';import {ChevronDown} from 'lucide-react';import {cn} from '@/lib/utils';
+export const Accordion=AccordionPrimitive.Root;export const AccordionItem=AccordionPrimitive.Item;export const AccordionContent=AccordionPrimitive.Content;
+export function AccordionTrigger({children,className,...props}:React.ComponentProps<typeof AccordionPrimitive.Trigger>){return <AccordionPrimitive.Header><AccordionPrimitive.Trigger className={cn('s4-accordion-trigger',className)} {...props}>{children}<ChevronDown size={18}/></AccordionPrimitive.Trigger></AccordionPrimitive.Header>}

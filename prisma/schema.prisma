@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum AdminRole {
+  ADMIN
+  EDITOR
+}
+
+enum InquiryStatus {
+  NEW
+  IN_PROGRESS
+  RESPONDED
+  CLOSED
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique @db.VarChar(191)
+  name         String    @db.VarChar(191)
+  passwordHash String    @db.VarChar(255)
+  role         AdminRole @default(EDITOR)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model SiteSettings {
+  id              String   @id @default("main") @db.VarChar(36)
+  companyName     String   @default("Simulcast Technologies Pvt. Ltd.")
+  headline        String   @default("Technology that connects what matters.")
+  subheadline     String   @db.Text
+  slogan          String   @default("Integrated Broadcast & Technology Solutions")
+  website         String   @default("https://www.simulcast.com.np")
+  publicEmail     String   @default("")
+  phone           String   @default("")
+  address         String   @default("Nepal")
+  facebook        String   @default("")
+  linkedin        String   @default("")
+  youtube         String   @default("")
+  instagram       String   @default("")
+  seoDescription  String   @db.Text
+  primaryColor    String   @default("#2b0d3a") @db.VarChar(32)
+  secondaryColor  String   @default("#e11d72") @db.VarChar(32)
+  heroBgColor     String   @default("#f5f7fd") @db.VarChar(32)
+  heroBadgeText   String   @default("INTEGRATED TECHNOLOGY · BUILT IN NEPAL") @db.VarChar(191)
+  heroEmphasis    String   @default("Connected by design.") @db.VarChar(191)
+  customCss       String?  @db.Text
+  enableChat      Boolean  @default(true)
+  chatGreeting    String   @default("Hello! Welcome to Simulcast Technologies. How can we help you with our broadcast, software, AI and IT solutions?") @db.VarChar(1000)
+  mcpApiKey       String   @default("simulcast_master_mcp_api_key_2026_sec") @db.VarChar(255)
+  escalationEmail String   @default("info@simulcast.com.np,support@simulcast.com.np") @db.VarChar(255)
+  supportEmail    String   @default("support@simulcast.com.np") @db.VarChar(255)
+  updatedAt       DateTime @updatedAt
+}
+
+model Service {
+  id        String   @id @default(cuid())
+  slug      String   @unique @db.VarChar(191)
+  title     String   @db.VarChar(191)
+  eyebrow   String   @default("")
+  summary   String   @db.Text
+  body      String   @db.LongText
+  icon      String   @default("layers")
+  imageUrl  String   @default("")
+  sortOrder Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  slug      String   @unique @db.VarChar(191)
+  title     String   @db.VarChar(191)
+  category  String   @default("Technology")
+  summary   String   @db.Text
+  body      String   @db.LongText
+  imageUrl  String   @default("")
+  location  String   @default("Nepal")
+  featured  Boolean  @default(false)
+  published Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id          String    @id @default(cuid())
+  slug        String    @unique @db.VarChar(191)
+  title       String    @db.VarChar(191)
+  excerpt     String    @db.Text
+  body        String    @db.LongText
+  imageUrl    String    @default("")
+  category    String    @default("Insights")
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Inquiry {
+  id            String        @id @default(cuid())
+  name          String        @db.VarChar(191)
+  email         String        @db.VarChar(191)
+  organization  String        @default("")
+  phone         String        @default("")
+  interest      String        @default("")
+  message       String        @db.Text
+  status        InquiryStatus @default(NEW)
+  internalNotes String        @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([createdAt])
+}
+
+model MediaAsset {
+  id        String   @id @default(cuid())
+  filename  String   @db.VarChar(191)
+  path      String   @db.VarChar(255)
+  mimeType  String   @db.VarChar(100)
+  size      Int
+  alt       String   @default("")
+  createdAt DateTime @default(now())
+}
+
+enum ChatStatus {
+  ACTIVE
+  ESCALATED_HUMAN
+  CLOSED
+}
+
+model ChatSession {
+  id             String        @id @default(cuid())
+  visitorId      String        @db.VarChar(191)
+  visitorName    String        @default("Website Visitor") @db.VarChar(191)
+  visitorEmail   String        @default("") @db.VarChar(191)
+  visitorPhone   String        @default("") @db.VarChar(64)
+  status         ChatStatus    @default(ACTIVE)
+  escalatedAt    DateTime?
+  closedAt       DateTime?
+  summary        String?       @db.Text
+  transcriptSent Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  messages       ChatMessage[]
+
+  @@index([visitorId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ChatMessage {
+  id         String      @id @default(cuid())
+  sessionId  String
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender     String      @db.VarChar(32) // "user" | "bot" | "human_agent" | "system"
+  senderName String      @db.VarChar(191)
+  content    String      @db.Text
+  createdAt  DateTime    @default(now())
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+model ApiToken {
+  id          String    @id @default(cuid())
+  name        String    @db.VarChar(191)
+  token       String    @unique @db.VarChar(191)
+  role        String    @default("MCP_CLIENT") @db.VarChar(64)
+  description String    @default("") @db.VarChar(255)
+  revoked     Boolean   @default(false)
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

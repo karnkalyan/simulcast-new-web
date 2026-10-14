@@ -1,0 +1,3 @@
+import Link from 'next/link';
+/** Master mark + wordmark files are always reused, never redrawn or re-typeset. */
+export default function BrandLogo({light=false,compact=false}:{light?:boolean;compact?:boolean}){return <Link href="/" className={'sc-brand '+(light?'sc-brand-light ':'')+(compact?'sc-brand-compact':'')} aria-label="Simulcast Technologies home"><img className="sc-brand-mark" src={light?'/brand/logo-mark-reverse.png':'/brand/logo-mark.png'} alt="" width="38" height="38"/><img className="sc-brand-name" src={light?'/brand/logo-wordmark-reverse.png':'/brand/logo-wordmark.png'} alt="SIMULCAST TECHNOLOGIES PVT. LTD." width="190" height="32"/></Link>}

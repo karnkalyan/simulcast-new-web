@@ -1,0 +1,2 @@
+/** Large subtle angle-based brand geometry with no raster assets or fixed gradients. */
+export default function BrandShape({variant="hero"}:{variant?:"hero"|"section"|"dark"}){return <div className={`brand-shape brand-shape-${variant}`} aria-hidden="true"><svg viewBox="0 0 900 700" fill="none" preserveAspectRatio="xMidYMid meet"><path d="M637 10L246 307 475 493" stroke="currentColor" strokeWidth="36" strokeLinecap="square"/><path d="M453 181L690 360 333 648" stroke="currentColor" strokeWidth="30" strokeLinecap="square"/></svg></div>}

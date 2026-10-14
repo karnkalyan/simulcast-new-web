@@ -1,0 +1,37 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: simulcast-website
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "3079"
+      HOSTNAME: 0.0.0.0
+      DATABASE_URL: ${DATABASE_URL:-mysql://root:quantumSql%40123@host.docker.internal:3306/simulcast_web}
+      ADMIN_KEY: ${ADMIN_KEY:-simulcast-admin}
+      AUTH_SECRET: ${AUTH_SECRET:-0d203ad596afeb905bb116ba502258c35a23d38be9a206315de4c3f130832b81}
+      MCP_API_KEY: ${MCP_API_KEY:-simulcast_master_mcp_api_key_2026_sec}
+      MCP_JWT_SECRET: ${MCP_JWT_SECRET:-simulcast_mcp_jwt_secret_secure_key_2026_x92817491823}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@simulcast.com.np}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-SimulcastDevAdmin2026!}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3079}
+    ports:
+      - "3079:3079"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - app_uploads:/app/public/uploads
+    healthcheck:
+      test: [ "CMD", "node", "-e", "fetch('http://127.0.0.1:3079/').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  app_uploads:

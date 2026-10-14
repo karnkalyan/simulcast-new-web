@@ -1,0 +1,1 @@
+Optional concept image contains generated textual labels and is NOT used as a production website asset. Proofread and recreate labels in editable HTML before any public use. V6_STATIC_DESIGN_REVIEW.html is a static representation only; no actual Next.js runtime browser preview was possible.

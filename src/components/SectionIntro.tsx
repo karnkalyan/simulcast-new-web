@@ -1,0 +1,2 @@
+import type{ReactNode}from'react';
+export default function SectionIntro({eyebrow,title,description,light=false}:{eyebrow:string;title:ReactNode;description?:string;light?:boolean}){return <div className={'sc-section-intro '+(light?'sc-section-intro-light':'')} data-reveal><span className="sc-eyebrow">{eyebrow}</span><div className="sc-section-heading"><h2>{title}</h2>{description&&<p>{description}</p>}</div></div>}
