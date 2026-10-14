@@ -272,43 +272,114 @@ export async function POST(request: Request) {
 
   const { jsonrpc = "2.0", id = null, method, params = {} } = body;
 
-  // ChatGPT MCP connects unauthenticated first for handshake, tools listing, and discovery
-  const isPublicMethod = method === "initialize" || method === "tools/list" || method === "resources/list" || method === "resources/read" || method === "ping";
+  // MCP discovery, handshake, and telemetry methods must never require authentication
+  const isDiscoveryMethod =
+    method === "initialize" ||
+    method === "notifications/initialized" ||
+    method === "tools/list" ||
+    method === "resources/list" ||
+    method === "resources/read" ||
+    method === "resources/templates/list" ||
+    method === "prompts/list" ||
+    method === "prompts/get" ||
+    method === "ping" ||
+    method === "logging/setLevel";
+
   const toolName = (params as { name?: string })?.name;
-  const isPublicToolCall = method === "tools/call" && (toolName === "get_site_settings" || toolName === "list_services" || toolName === "list_projects");
+  const isPublicToolCall =
+    method === "tools/call" &&
+    (toolName === "get_site_settings" ||
+      toolName === "list_services" ||
+      toolName === "list_projects" ||
+      toolName === "ask_simulcast_ai" ||
+      toolName === "list_blog_posts");
 
   const auth = await verifyMcpAuth(request);
 
-  if (!isPublicMethod && !isPublicToolCall && !auth.authenticated) {
+  if (!isDiscoveryMethod && !isPublicToolCall && !auth.authenticated) {
     return NextResponse.json(
       {
         jsonrpc: "2.0",
         error: { code: -32002, message: `Authentication required for this operation: ${auth.error || "Provide Authorization token"}` },
         id,
       },
-      { status: 401 }
+      {
+        status: 401,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, x-mcp-key, x-api-key",
+        },
+      }
     );
   }
 
   switch (method) {
-    case "initialize":
-      return NextResponse.json({
-        jsonrpc,
-        id,
-        result: {
-          protocolVersion: MCP_PROTOCOL_VERSION,
-          capabilities: {
-            tools: { listChanged: false },
-            resources: { subscribe: false, listChanged: false },
-            prompts: { listChanged: false },
-          },
-          serverInfo: {
-            name: "simulcast-mcp-server",
-            version: "1.0.0",
-            description: "Simulcast Technologies Model Context Protocol Server",
+    case "initialize": {
+      const clientVersion = (params as { protocolVersion?: string })?.protocolVersion;
+      return NextResponse.json(
+        {
+          jsonrpc,
+          id,
+          result: {
+            protocolVersion: clientVersion || MCP_PROTOCOL_VERSION,
+            capabilities: {
+              tools: { listChanged: false },
+              resources: { subscribe: false, listChanged: false },
+              prompts: { listChanged: false },
+            },
+            serverInfo: {
+              name: "simulcast-mcp-server",
+              version: "1.0.0",
+              description: "Simulcast Technologies Model Context Protocol Server",
+            },
           },
         },
+        {
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, x-mcp-key, x-api-key",
+          },
+        }
+      );
+    }
+
+    case "notifications/initialized":
+      return new NextResponse(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+        },
       });
+
+    case "ping":
+      return NextResponse.json(
+        { jsonrpc, id, result: {} },
+        {
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+
+    case "prompts/list":
+      return NextResponse.json(
+        { jsonrpc, id, result: { prompts: [] } },
+        {
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+
+    case "resources/templates/list":
+      return NextResponse.json(
+        { jsonrpc, id, result: { resourceTemplates: [] } },
+        {
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
 
     case "tools/list":
       return NextResponse.json({

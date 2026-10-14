@@ -26,20 +26,36 @@ export async function POST(request: Request) {
     expiresIn: "30d",
   });
 
-  return NextResponse.json({
-    access_token: accessToken,
-    token_type: "Bearer",
-    expires_in: 2592000, // 30 days
-    scope: "mcp:read mcp:write admin",
-    token: accessToken,
-  });
+  return NextResponse.json(
+    {
+      access_token: accessToken,
+      token_type: "Bearer",
+      expires_in: 2592000, // 30 days
+      scope: "mcp:read mcp:write admin",
+      token: accessToken,
+    },
+    {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    }
+  );
 }
 
 export async function GET() {
-  return NextResponse.json({
-    token_endpoint: "/api/oauth/token",
-    supported_grant_types: ["authorization_code", "client_credentials"],
-  });
+  return NextResponse.json(
+    {
+      token_endpoint: "/api/oauth/token",
+      supported_grant_types: ["authorization_code", "client_credentials"],
+    },
+    {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    }
+  );
 }
 
 export async function OPTIONS() {

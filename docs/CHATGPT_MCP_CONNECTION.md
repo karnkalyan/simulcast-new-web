@@ -16,15 +16,15 @@ When configuring the connector in ChatGPT (**Settings → Connected apps** or **
 | **Description** *(optional)* | `Simulcast broadcast engineering, software platforms, inquiry logging, and AI consulting.` | `Simulcast broadcast & software inquiries.` |
 | **Connection / Server URL** | `https://www.simulcast.com.np/api/mcp` | `https://www.simulcast.com.np/api/mcp` |
 | **Authentication** | **OAuth** | **No authentication** |
-| **Client registration** | **User-Defined OAuth Client** | — |
-| **OAuth client ID** | `chatgpt-mcp` | — |
-| **OAuth client secret** | `eyJhbGciOiJIUzI1NiJ9.eyJuYW1lIjoiTUNQIiwicm9sZSI6Ik1DUF9DTElFTlQiLCJzdWIiOiJNQ1AiLCJpYXQiOjE3OTIwMDIxMTUsImV4cCI6MTgyMzUzODExNX0.EVSjZQv-e02Zpo_aqhpK-EuSz7UqvmVD9hFOEg2_wxE` *(or `simulcast_master_mcp_api_key_2026_sec`)* | — |
+| **Client registration** | **Dynamic Client Registration (DCR)** *(Automated)* OR **User-Defined OAuth Client** | — |
+| **OAuth client ID** | `chatgpt-mcp` *(Auto-generated if using DCR)* | — |
+| **OAuth client secret** | `eyJhbGciOiJIUzI1NiJ9.eyJuYW1lIjoiTUNQIiwicm9sZSI6Ik1DUF9DTElFTlQiLCJzdWIiOiJNQ1AiLCJpYXQiOjE3OTIwMDIxMTUsImV4cCI6MTgyMzUzODExNX0.EVSjZQv-e02Zpo_aqhpK-EuSz7UqvmVD9hFOEg2_wxE` | — |
 | **Token endpoint auth method** | `client_secret_post` *(or `none`)* | — |
 | **Default scopes** | `mcp:read mcp:write admin` | — |
 | **Base scopes** | `mcp:read` | — |
 | **Auth URL** | `https://www.simulcast.com.np/api/oauth/authorize` | — |
 | **Token URL** | `https://www.simulcast.com.np/api/oauth/token` | — |
-| **Registration URL** | *(Leave empty)* | — |
+| **Registration URL** | `https://www.simulcast.com.np/api/oauth/register` | — |
 | **Authorization server base** | `https://www.simulcast.com.np` *(or empty)* | — |
 | **Resource** | `https://www.simulcast.com.np/api/mcp` *(or empty)* | — |
 | **OpenID support (OIDC enabled)** | **OFF / Disabled** | — |
