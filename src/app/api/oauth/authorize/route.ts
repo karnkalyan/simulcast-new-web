@@ -37,7 +37,16 @@ export async function GET(request: Request) {
   }
 
   // Redirect user's browser to the branded interactive login & consent dialog
-  const dialogUrl = new URL("/oauth/authorize", request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  let host = forwardedHost || request.headers.get("host") || "";
+  if (host.includes("0.0.0.0")) {
+    host = host.replace("0.0.0.0", "localhost");
+  }
+  const isLocal = host.includes("localhost") || host.startsWith("127.");
+  const proto = request.headers.get("x-forwarded-proto") || (isLocal ? "http" : "https");
+  const baseUrl = host ? `${proto}://${host}` : "https://www.simulcast.com.np";
+  const dialogUrl = new URL("/oauth/authorize", baseUrl);
+
   if (redirectUri) dialogUrl.searchParams.set("redirect_uri", redirectUri);
   if (state) dialogUrl.searchParams.set("state", state);
   if (clientId) dialogUrl.searchParams.set("client_id", clientId);

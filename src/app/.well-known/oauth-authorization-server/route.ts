@@ -10,6 +10,8 @@ function resolveBaseUrl(request: Request): string {
 
   const isPrivateOrLocal =
     !host ||
+    host.includes("0.0.0.0") ||
+    host.startsWith("0.") ||
     host.includes("localhost") ||
     host.startsWith("127.") ||
     host.startsWith("192.168.") ||
