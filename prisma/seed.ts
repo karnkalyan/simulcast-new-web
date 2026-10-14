@@ -31,6 +31,32 @@ async function main() {
     {slug:"ai-workflow-pipeline",title:"AI & Intelligent Workflow Pipeline",category:"AI & Process Automation",summary:"Automated media ingest, AI-assisted content tagging, intelligent transcoding and automated verification.",body:"Intelligent automation layer integrating computer vision, automated metadata tagging, compliance logging and automated workflow routing.",imageUrl:"/visuals/futuristic_ai_workflow_pipeline.webp",location:"Innovation Lab",featured:true,sortOrder:6}
   ];
   for(const p of projects) await db.project.upsert({where:{slug:p.slug},update:{...p},create:p});
+
+  const { guides } = await import("../src/lib/editorial");
+  for (const g of guides) {
+    await db.post.upsert({
+      where: { slug: g.slug },
+      update: {
+        title: g.title,
+        category: g.category,
+        excerpt: g.excerpt,
+        body: g.paragraphs.join("\n\n"),
+        imageUrl: g.image,
+        published: true,
+      },
+      create: {
+        slug: g.slug,
+        title: g.title,
+        category: g.category,
+        excerpt: g.excerpt,
+        body: g.paragraphs.join("\n\n"),
+        imageUrl: g.image,
+        published: true,
+        publishedAt: new Date(),
+      },
+    });
+  }
+
   console.log("Seed complete. Admin:",email,"(password not printed)");
 }
 main().finally(()=>db.$disconnect()).catch(e=>{console.error(e);process.exitCode=1;});

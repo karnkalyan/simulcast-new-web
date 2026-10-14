@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { verifyMcpAuth } from "@/lib/mcp-auth";
 import { sendHumanEscalationNotification } from "@/lib/email";
 import { generateGeminiReply } from "@/lib/gemini";
+import { guides } from "@/lib/editorial";
+import { fallbackSettings, staticServices, staticProjects } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -441,7 +443,11 @@ export async function POST(request: Request) {
 
       try {
         if (toolName === "get_site_settings") {
-          const settings = await prisma.siteSettings.findFirst();
+          let settings = null;
+          try {
+            settings = await prisma.siteSettings.findFirst();
+          } catch {}
+          const finalSettings = settings || fallbackSettings;
           return NextResponse.json({
             jsonrpc,
             id,
@@ -449,7 +455,7 @@ export async function POST(request: Request) {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(settings, null, 2),
+                  text: JSON.stringify(finalSettings, null, 2),
                 },
               ],
             },
@@ -457,10 +463,14 @@ export async function POST(request: Request) {
         }
 
         if (toolName === "list_services") {
-          const services = await prisma.service.findMany({
-            where: { published: true },
-            orderBy: { sortOrder: "asc" },
-          });
+          let services: Array<Record<string, unknown>> = [];
+          try {
+            services = (await prisma.service.findMany({
+              where: { published: true },
+              orderBy: { sortOrder: "asc" },
+            })) as unknown as Array<Record<string, unknown>>;
+          } catch {}
+          const finalServices = services && services.length > 0 ? services : staticServices;
           return NextResponse.json({
             jsonrpc,
             id,
@@ -468,7 +478,7 @@ export async function POST(request: Request) {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(services, null, 2),
+                  text: JSON.stringify(finalServices, null, 2),
                 },
               ],
             },
@@ -478,10 +488,15 @@ export async function POST(request: Request) {
         if (toolName === "list_projects") {
           const featuredOnly = Boolean(args.featuredOnly);
           const whereClause = featuredOnly ? { published: true, featured: true } : { published: true };
-          const projects = await prisma.project.findMany({
-            where: whereClause,
-            orderBy: { sortOrder: "asc" },
-          });
+          let projects: Array<Record<string, unknown>> = [];
+          try {
+            projects = (await prisma.project.findMany({
+              where: whereClause,
+              orderBy: { sortOrder: "asc" },
+            })) as unknown as Array<Record<string, unknown>>;
+          } catch {}
+          const fallback = featuredOnly ? staticProjects.filter((p) => p.featured) : staticProjects;
+          const finalProjects = projects && projects.length > 0 ? projects : fallback;
           return NextResponse.json({
             jsonrpc,
             id,
@@ -489,7 +504,7 @@ export async function POST(request: Request) {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(projects, null, 2),
+                  text: JSON.stringify(finalProjects, null, 2),
                 },
               ],
             },
@@ -632,23 +647,48 @@ export async function POST(request: Request) {
         }
 
         if (toolName === "list_blog_posts") {
-          const category = args.category ? String(args.category) : undefined;
+          const category = args.category ? String(args.category).toLowerCase().trim() : undefined;
           const publishedOnly = args.publishedOnly !== false;
           const whereClause: { published?: boolean; category?: string } = {};
           if (publishedOnly) whereClause.published = true;
           if (category) whereClause.category = category;
 
-          const posts = await prisma.post.findMany({
-            where: whereClause,
-            orderBy: { createdAt: "desc" },
-            take: 25,
-          });
+          let dbPosts: Array<Record<string, unknown>> = [];
+          try {
+            dbPosts = (await prisma.post.findMany({
+              where: whereClause,
+              orderBy: { createdAt: "desc" },
+              take: 25,
+            })) as unknown as Array<Record<string, unknown>>;
+          } catch {}
+
+          const staticEditorialPosts = guides.map((g, idx) => ({
+            id: `guide-${idx + 1}`,
+            slug: g.slug,
+            title: g.title,
+            category: g.category,
+            excerpt: g.excerpt,
+            body: g.paragraphs.join("\n\n"),
+            imageUrl: g.image,
+            published: true,
+            createdAt: new Date().toISOString(),
+          }));
+
+          const filteredStatic = category
+            ? staticEditorialPosts.filter((p) => p.category.toLowerCase().includes(category))
+            : staticEditorialPosts;
+
+          // Merge DB posts with static editorial guides
+          const allPosts = [
+            ...dbPosts,
+            ...filteredStatic.filter((s) => !dbPosts.some((d) => d.slug === s.slug)),
+          ];
 
           return NextResponse.json({
             jsonrpc,
             id,
             result: {
-              content: [{ type: "text", text: JSON.stringify(posts, null, 2) }],
+              content: [{ type: "text", text: JSON.stringify(allPosts, null, 2) }],
             },
           });
         }
