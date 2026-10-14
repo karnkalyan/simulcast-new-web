@@ -29,7 +29,8 @@ function resolveBaseUrl(request: Request): string {
   }
 
   // Always advertise public production domain to external callers
-  return "https://www.simulcast.com.np";
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL;
+  return (envUrl || "https://simulcast.com.np").replace(/\/$/, "");
 }
 
 export async function GET(request: Request) {

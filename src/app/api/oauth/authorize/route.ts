@@ -37,14 +37,31 @@ export async function GET(request: Request) {
   }
 
   // Redirect user's browser to the branded interactive login & consent dialog
+  const envUrl = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "https://simulcast.com.np").replace(/\/$/, "");
   const forwardedHost = request.headers.get("x-forwarded-host");
-  let host = forwardedHost || request.headers.get("host") || "";
-  if (host.includes("0.0.0.0")) {
-    host = host.replace("0.0.0.0", "localhost");
+  const host = forwardedHost || request.headers.get("host") || "";
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+
+  // If host is an internal IP or 0.0.0.0 bind address, NEVER redirect browser there
+  const isInternal =
+    !host ||
+    host.includes("0.0.0.0") ||
+    host.startsWith("0.") ||
+    host.startsWith("10.") ||
+    host.startsWith("172.") ||
+    host.startsWith("192.168.");
+
+  let baseUrl = envUrl;
+  if (!isInternal) {
+    const isLocalhost = host.includes("localhost") || host.startsWith("127.");
+    if (isLocalhost && process.env.NODE_ENV === "production") {
+      baseUrl = envUrl;
+    } else {
+      const proto = forwardedProto || (isLocalhost ? "http" : "https");
+      baseUrl = `${proto}://${host}`;
+    }
   }
-  const isLocal = host.includes("localhost") || host.startsWith("127.");
-  const proto = request.headers.get("x-forwarded-proto") || (isLocal ? "http" : "https");
-  const baseUrl = host ? `${proto}://${host}` : "https://www.simulcast.com.np";
+
   const dialogUrl = new URL("/oauth/authorize", baseUrl);
 
   if (redirectUri) dialogUrl.searchParams.set("redirect_uri", redirectUri);
