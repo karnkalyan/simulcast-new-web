@@ -9,11 +9,17 @@ export const dynamic = "force-dynamic";
 // MCP Protocol Version
 const MCP_PROTOCOL_VERSION = "2024-11-05";
 
-// Tool Definitions
+// Tool Definitions (Compliant with MCP 2024-11-05 & OpenAI Apps SDK 2025/2026 specs)
 const TOOLS = [
   {
     name: "get_site_settings",
     description: "Get Simulcast Technologies official company details, slogans, contact information, and brand styling.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
     inputSchema: {
       type: "object",
       properties: {},
@@ -22,6 +28,12 @@ const TOOLS = [
   {
     name: "list_services",
     description: "List all broadcast engineering, custom software, AI automation, and IT infrastructure services offered by Simulcast.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -32,6 +44,12 @@ const TOOLS = [
   {
     name: "list_projects",
     description: "Retrieve showcased real-world engineering projects deployed by Simulcast Technologies in Nepal.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -42,6 +60,12 @@ const TOOLS = [
   {
     name: "submit_inquiry",
     description: "Submit a new customer inquiry or project lead to Simulcast Technologies.",
+    scopes: ["mcp:write"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -58,6 +82,12 @@ const TOOLS = [
   {
     name: "request_human_agent",
     description: "Escalate visitor chat to human support engineers. Dispatches priority notification to the engineering support team.",
+    scopes: ["mcp:write"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -72,6 +102,12 @@ const TOOLS = [
   {
     name: "ask_simulcast_ai",
     description: "Query the Simulcast AI Intelligence & Knowledge Engine with custom technical inquiries.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -83,6 +119,12 @@ const TOOLS = [
   {
     name: "get_chat_history",
     description: "Retrieve the full transcript of a chat session.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -94,6 +136,12 @@ const TOOLS = [
   {
     name: "list_blog_posts",
     description: "List recent blog/insights posts with filtering by category and publish status.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -105,6 +153,12 @@ const TOOLS = [
   {
     name: "create_blog_post",
     description: "Create and optionally publish a new insight or blog article on the website.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -122,6 +176,12 @@ const TOOLS = [
   {
     name: "update_blog_post",
     description: "Update an existing insight/blog post by its slug or ID.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -139,6 +199,12 @@ const TOOLS = [
   {
     name: "create_project",
     description: "Publish a new showcase project or case study deployment.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -157,6 +223,12 @@ const TOOLS = [
   {
     name: "update_site_settings",
     description: "Update company details, headlines, contact numbers, or theme colors on the website.",
+    scopes: ["admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
     inputSchema: {
       type: "object",
       properties: {

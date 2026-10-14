@@ -121,9 +121,28 @@ ChatGPT cannot reach `http://localhost:3000` because OpenAI’s servers run in t
 
 ---
 
-## 6. Troubleshooting
+## 6. OpenAI MCP Risks & Safety Compliance (2026 Standards)
+
+When adding a custom MCP server, ChatGPT displays:
+> *"Custom MCP servers introduce risk. [Learn more](https://platform.openai.com/docs/mcp#risks-and-safety)*  
+> *Only connect to MCP servers you trust. An untrusted server may access or steal information shared through app use, or trick ChatGPT into using tools in unintended ways, including changing or deleting data."*
+
+### How to complete this step in ChatGPT:
+1. Select the checkbox: **"I understand and want to continue"**.
+2. Click **Connect** or **Save**.
+
+### How Simulcast MCP Server Complies with OpenAI Safety Standards:
+1. **OAuth Scopes & Least Privilege**: Every tool advertises its explicit scope (`mcp:read`, `mcp:write`, or `admin`). ChatGPT only requests and grants the scopes necessary for selected tools.
+2. **Explicit Human Confirmation (`openAiConfirmationRequired`)**: Mutating tools (creating blog posts, submitting leads, updating site details, sending emergency escalations) declare confirmation requirements, so ChatGPT asks for your approval before writing data.
+3. **Non-Destructive Hints**: All tools advertise `destructiveHint: false` ensuring tools do not execute unrecoverable deletions.
+4. **Token Encryption & Revocation**: All API tokens are HS256-signed JWTs or database-tracked keys that can be revoked immediately from the `/admin/mcp` dashboard.
+
+---
+
+## 7. Troubleshooting
 
 * **"Failed to connect / SSL error"**: Ensure your base URL uses `https://` and is publicly reachable.
 * **"OIDC userinfo error"**: Make sure **OIDC enabled** is toggled **OFF** in ChatGPT.
 * **"CORS error"**: The server includes `OPTIONS` preflight handlers on `/api/mcp` and `/api/oauth/token` with `Access-Control-Allow-Origin: *`.
 * **"Unauthorized on tool execution"**: Ensure **Token endpoint auth method** is set to `client_secret_post` and the default scopes include `mcp:read mcp:write admin`.
+
