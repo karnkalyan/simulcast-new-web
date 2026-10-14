@@ -91,6 +91,84 @@ const TOOLS = [
       required: ["sessionId"],
     },
   },
+  {
+    name: "list_blog_posts",
+    description: "List recent blog/insights posts with filtering by category and publish status.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        category: { type: "string", description: "Filter by category (e.g. Broadcast engineering, Streaming technology, Telecom & ISP, AI & automation)" },
+        publishedOnly: { type: "boolean", description: "Whether to return only published posts (default true)" },
+      },
+    },
+  },
+  {
+    name: "create_blog_post",
+    description: "Create and optionally publish a new insight or blog article on the website.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Article title" },
+        slug: { type: "string", description: "Unique URL slug (e.g. next-gen-iptv-nepal)" },
+        excerpt: { type: "string", description: "Brief executive summary of the post" },
+        body: { type: "string", description: "Full markdown or text content of the article" },
+        category: { type: "string", description: "Category (e.g. Broadcast engineering, Streaming technology, Telecom & ISP, Applied AI, Software & IT Consulting)" },
+        imageUrl: { type: "string", description: "Image asset path or URL" },
+        published: { type: "boolean", description: "Publish immediately or save as draft (default true)" },
+      },
+      required: ["title", "slug", "excerpt", "body"],
+    },
+  },
+  {
+    name: "update_blog_post",
+    description: "Update an existing insight/blog post by its slug or ID.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "Current slug of the post to update" },
+        title: { type: "string", description: "Updated title" },
+        excerpt: { type: "string", description: "Updated excerpt" },
+        body: { type: "string", description: "Updated full article body" },
+        category: { type: "string", description: "Updated category" },
+        imageUrl: { type: "string", description: "Updated image URL" },
+        published: { type: "boolean", description: "Set published status" },
+      },
+      required: ["slug"],
+    },
+  },
+  {
+    name: "create_project",
+    description: "Publish a new showcase project or case study deployment.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Project title" },
+        slug: { type: "string", description: "Unique URL slug" },
+        category: { type: "string", description: "Category (e.g. Broadcast Engineering, Streaming Infrastructure, Data Center & Networks, Software & Automation)" },
+        summary: { type: "string", description: "High-level summary" },
+        body: { type: "string", description: "Detailed case study description" },
+        location: { type: "string", description: "Deployment location (e.g. Lalitpur, Nepal)" },
+        imageUrl: { type: "string", description: "Cover image URL" },
+        featured: { type: "boolean", description: "Feature on homepage (default false)" },
+      },
+      required: ["title", "slug", "summary", "body"],
+    },
+  },
+  {
+    name: "update_site_settings",
+    description: "Update company details, headlines, contact numbers, or theme colors on the website.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        headline: { type: "string", description: "Main homepage headline" },
+        subheadline: { type: "string", description: "Subheadline description" },
+        phone: { type: "string", description: "Official contact phone numbers" },
+        publicEmail: { type: "string", description: "Public contact email address" },
+        address: { type: "string", description: "Physical office address" },
+        heroEmphasis: { type: "string", description: "Hero emphasis gradient text" },
+      },
+    },
+  },
 ];
 
 const RESOURCES = [
@@ -406,6 +484,168 @@ export async function POST(request: Request) {
                   text: JSON.stringify(session, null, 2),
                 },
               ],
+            },
+          });
+        }
+
+        if (toolName === "list_blog_posts") {
+          const category = args.category ? String(args.category) : undefined;
+          const publishedOnly = args.publishedOnly !== false;
+          const whereClause: { published?: boolean; category?: string } = {};
+          if (publishedOnly) whereClause.published = true;
+          if (category) whereClause.category = category;
+
+          const posts = await prisma.post.findMany({
+            where: whereClause,
+            orderBy: { createdAt: "desc" },
+            take: 25,
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(posts, null, 2) }],
+            },
+          });
+        }
+
+        if (toolName === "create_blog_post") {
+          const title = String(args.title || "").trim();
+          const slug = String(args.slug || "").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+          const excerpt = String(args.excerpt || "").trim();
+          const bodyText = String(args.body || "").trim();
+          const category = String(args.category || "Insights").trim();
+          const imageUrl = String(args.imageUrl || "/visuals/futuristic_neon_analytics_control_centre.webp");
+          const published = args.published !== false;
+
+          if (!title || !slug || !excerpt || !bodyText) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "Missing required fields: title, slug, excerpt, body" },
+            });
+          }
+
+          const post = await prisma.post.upsert({
+            where: { slug },
+            update: {
+              title,
+              excerpt,
+              body: bodyText,
+              category,
+              imageUrl,
+              published,
+              publishedAt: published ? new Date() : null,
+            },
+            create: {
+              title,
+              slug,
+              excerpt,
+              body: bodyText,
+              category,
+              imageUrl,
+              published,
+              publishedAt: published ? new Date() : null,
+            },
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: `Successfully saved blog post "${post.title}" (slug: /insights/${post.slug}). Status: ${post.published ? "Published" : "Draft"}.`,
+                },
+              ],
+            },
+          });
+        }
+
+        if (toolName === "update_blog_post") {
+          const slug = String(args.slug || "").trim();
+          if (!slug) {
+            return NextResponse.json({ jsonrpc, id, error: { code: -32602, message: "slug is required" } });
+          }
+
+          const dataToUpdate: Record<string, unknown> = {};
+          if (args.title) dataToUpdate.title = String(args.title);
+          if (args.excerpt) dataToUpdate.excerpt = String(args.excerpt);
+          if (args.body) dataToUpdate.body = String(args.body);
+          if (args.category) dataToUpdate.category = String(args.category);
+          if (args.imageUrl) dataToUpdate.imageUrl = String(args.imageUrl);
+          if (typeof args.published === "boolean") {
+            dataToUpdate.published = args.published;
+            if (args.published) dataToUpdate.publishedAt = new Date();
+          }
+
+          const updated = await prisma.post.update({
+            where: { slug },
+            data: dataToUpdate,
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Post "${updated.title}" updated successfully.` }],
+            },
+          });
+        }
+
+        if (toolName === "create_project") {
+          const title = String(args.title || "").trim();
+          const slug = String(args.slug || "").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+          const summary = String(args.summary || "").trim();
+          const bodyText = String(args.body || "").trim();
+          const category = String(args.category || "Broadcast Engineering").trim();
+          const location = String(args.location || "Nepal").trim();
+          const imageUrl = String(args.imageUrl || "/visuals/neon_broadcast_operations_centre.webp");
+          const featured = Boolean(args.featured);
+
+          const project = await prisma.project.upsert({
+            where: { slug },
+            update: { title, summary, body: bodyText, category, location, imageUrl, featured, published: true },
+            create: { title, slug, summary, body: bodyText, category, location, imageUrl, featured, published: true },
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Project "${project.title}" created successfully at /projects/${project.slug}.` }],
+            },
+          });
+        }
+
+        if (toolName === "update_site_settings") {
+          const data: Record<string, string> = {};
+          if (args.headline) data.headline = String(args.headline);
+          if (args.subheadline) data.subheadline = String(args.subheadline);
+          if (args.phone) data.phone = String(args.phone);
+          if (args.publicEmail) data.publicEmail = String(args.publicEmail);
+          if (args.address) data.address = String(args.address);
+          if (args.heroEmphasis) data.heroEmphasis = String(args.heroEmphasis);
+
+          const settings = await prisma.siteSettings.upsert({
+            where: { id: "main" },
+            update: data,
+            create: {
+              id: "main",
+              headline: data.headline || "Software. Systems. Infrastructure.",
+              subheadline: data.subheadline || "Simulcast Technologies integrated engineering solutions in Nepal.",
+              seoDescription: "Simulcast Technologies Pvt. Ltd.",
+              ...data,
+            },
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Site settings updated successfully: ${JSON.stringify(settings)}` }],
             },
           });
         }

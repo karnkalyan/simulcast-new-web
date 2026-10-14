@@ -144,6 +144,25 @@ wss.on('connection', async (ws, req) => {
           const p = await prisma.project.findMany({ where: { published: true } });
           return ws.send(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(p) }] } }));
         }
+        if (toolName === 'list_blog_posts') {
+          const posts = await prisma.post.findMany({ where: { published: true }, orderBy: { createdAt: 'desc' }, take: 20 });
+          return ws.send(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(posts) }] } }));
+        }
+        if (toolName === 'create_blog_post') {
+          const a = params?.arguments || {};
+          const slug = String(a.slug || a.title || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+          const post = await prisma.post.upsert({
+            where: { slug },
+            update: { title: a.title, excerpt: a.excerpt, body: a.body, category: a.category || 'Insights', published: a.published !== false },
+            create: { title: a.title, slug, excerpt: a.excerpt, body: a.body, category: a.category || 'Insights', published: a.published !== false }
+          });
+          return ws.send(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `Created blog post: ${post.title} at /insights/${post.slug}` }] } }));
+        }
+        if (toolName === 'update_blog_post') {
+          const a = params?.arguments || {};
+          const updated = await prisma.post.update({ where: { slug: a.slug }, data: { title: a.title, excerpt: a.excerpt, body: a.body, category: a.category } });
+          return ws.send(JSON.stringify({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `Updated blog post: ${updated.title}` }] } }));
+        }
       }
 
       if (method === 'ping') {
