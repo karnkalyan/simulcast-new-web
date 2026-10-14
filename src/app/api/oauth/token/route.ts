@@ -19,10 +19,21 @@ export async function POST(request: Request) {
     code = json.code || "";
   }
 
-  // Generate an authorized JWT access token valid for 30 days
+  let clientIdentity = "ChatGPT Plugin Client";
+  let clientRole = "MCP_ADMIN";
+
+  if (code) {
+    try {
+      const decoded = JSON.parse(Buffer.from(code, "base64url").toString("utf-8"));
+      if (decoded.user) clientIdentity = String(decoded.user);
+      if (decoded.role) clientRole = String(decoded.role);
+    } catch {}
+  }
+
+  // Generate an authorized JWT access token valid for 30 days tied to the authenticated user
   const accessToken = await createMcpToken({
-    name: "ChatGPT OAuth Client",
-    role: "MCP_ADMIN",
+    name: clientIdentity,
+    role: clientRole,
     expiresIn: "30d",
   });
 

@@ -55,14 +55,18 @@ simulcast_master_mcp_api_key_2026_sec
 
 ## 2. Authentication Methods Explained
 
-### Option A: OAuth (Recommended — Full Access)
+### Option A: OAuth with Interactive Login Dialog (Plugin Experience)
 * **What it enables**: All 12 tools, including administrative tasks, creating blog posts, updating site settings, inquiry dispatch, and human escalation.
 * **How it works**:
-  1. ChatGPT redirects to `https://www.simulcast.com.np/api/oauth/authorize`.
-  2. The server generates an authorization code and immediately redirects back to ChatGPT's callback URL.
-  3. ChatGPT POSTs this code to `https://www.simulcast.com.np/api/oauth/token`.
-  4. The server returns a 30-day JWT Bearer token with `MCP_ADMIN` privileges.
-  5. Subsequent tool calls include `Authorization: Bearer <token>`.
+  1. ChatGPT opens a secure browser popup to `https://www.simulcast.com.np/api/oauth/authorize`.
+  2. The popup loads the branded **Simulcast Plugin Authorization Dialog** (`/oauth/authorize`).
+  3. **User Authentication**:
+     * If the user is already logged into Simulcast, it displays their verified email (`admin@simulcast.com.np`) and allows instant authorization.
+     * If not logged in, the user enters their Admin Email & Password (or MCP Master Key).
+  4. The user clicks **Authorize & Connect**.
+  5. The dialog redirects back to ChatGPT's callback URL with an authorization code tied to that user's identity.
+  6. ChatGPT POSTs this code to `/api/oauth/token` and receives a personalized 30-day Bearer token.
+  7. ChatGPT confirms **"Connected to Simulcast Technologies"**!
 
 ### Option B: No Authentication (Fastest — Public Read-Only)
 * **What it enables**: Public tools without credentials:
@@ -77,11 +81,13 @@ simulcast_master_mcp_api_key_2026_sec
 
 ## 3. Server Endpoints Reference
 
-| Purpose | URL | Method | Auth |
+| Purpose | URL | Method | Auth / Behavior |
 | :--- | :--- | :--- | :--- |
 | **MCP JSON-RPC 2.0** | `https://www.simulcast.com.np/api/mcp` | `POST`, `GET`, `OPTIONS` | Public for discovery & queries; Bearer for admin |
-| **OAuth 2.0 Authorize** | `https://www.simulcast.com.np/api/oauth/authorize` | `GET` | Auto-approving redirect |
-| **OAuth 2.0 Token** | `https://www.simulcast.com.np/api/oauth/token` | `POST`, `GET`, `OPTIONS` | Grants 30-day JWT |
+| **OAuth 2.0 Authorize UI** | `https://www.simulcast.com.np/oauth/authorize` | `GET` | Interactive Login & Consent Dialog |
+| **OAuth 2.0 Authorize API** | `https://www.simulcast.com.np/api/oauth/authorize` | `GET`, `POST`, `OPTIONS` | Validates credentials & redirects |
+| **OAuth 2.0 Dynamic Client Registration (DCR)** | `https://www.simulcast.com.np/api/oauth/register` | `POST`, `OPTIONS` | RFC 7591 automated registration |
+| **OAuth 2.0 Token** | `https://www.simulcast.com.np/api/oauth/token` | `POST`, `GET`, `OPTIONS` | Grants 30-day JWT tied to user |
 | **OAuth Discovery** | `https://www.simulcast.com.np/.well-known/oauth-authorization-server` | `GET` | RFC 8414 metadata |
 | **OpenID Discovery** | `https://www.simulcast.com.np/.well-known/openid-configuration` | `GET` | OIDC metadata |
 
