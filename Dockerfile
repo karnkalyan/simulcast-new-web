@@ -19,6 +19,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/server.mjs ./server.mjs
 COPY --from=builder /app/next.config.ts ./next.config.ts
+COPY --from=builder /app/src ./src
 EXPOSE 3079
 EXPOSE 3000
 CMD ["sh", "-c", "npx prisma db push --skip-generate || true; (npx tsx prisma/seed.ts || true); node server.mjs"]
