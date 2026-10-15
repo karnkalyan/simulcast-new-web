@@ -331,6 +331,58 @@ async function main() {
     });
   }
 
+  // Seed default custom routes (Nexus PHP dynamic endpoints)
+  const defaultRoutes = [
+    {
+      path: "/api/nexus.php",
+      name: "Nexus Device Endpoints",
+      description: "Production and private endpoints for Nexus TV Today (returns dynamic init & device URLs)",
+      method: "ALL",
+      contentType: "application/json",
+      statusCode: 200,
+      responseBody: JSON.stringify(
+        {
+          init_url: "https://nexus.tvtoday.com.np/api/init_device.php",
+          device_url: "https://nexus.tvtoday.com.np/device.php",
+          pvt_init_url: "http://192.168.5.208/nexus/api/init_device.php",
+          pvt_device_url: "http://192.168.5.208/nexus/device.php"
+        },
+        null,
+        2
+      ),
+      headers: JSON.stringify({ "Access-Control-Allow-Origin": "*" }, null, 2),
+      enabled: true
+    },
+    {
+      path: "/api/app_url.php",
+      name: "Nexus App URL Endpoint",
+      description: "PHP endpoint compatible URL returning device endpoints for applications",
+      method: "ALL",
+      contentType: "application/json",
+      statusCode: 200,
+      responseBody: JSON.stringify(
+        {
+          init_url: "https://nexus.tvtoday.com.np/api/init_device.php",
+          device_url: "https://nexus.tvtoday.com.np/device.php",
+          pvt_init_url: "http://192.168.5.208/nexus/api/init_device.php",
+          pvt_device_url: "http://192.168.5.208/nexus/device.php"
+        },
+        null,
+        2
+      ),
+      headers: JSON.stringify({ "Access-Control-Allow-Origin": "*" }, null, 2),
+      enabled: true
+    }
+  ];
+
+  for (const r of defaultRoutes) {
+    await (db as any).customRoute.upsert({
+      where: { path: r.path },
+      update: {},
+      create: r
+    }).catch(() => {});
+  }
+
   console.log("Seed complete. Admin:", email, "(password not printed)");
 }
 

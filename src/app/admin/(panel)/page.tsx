@@ -119,6 +119,7 @@ export default async function Dashboard(){
           </div>
           <div className="admin-quick">
             {[
+              {h:"/admin/custom-routes",label:"Custom API routes & output JSON (e.g. /api/nexus.php)"},
               {h:"/admin/chat",label:"Manage live chat sessions & human requests"},
               {h:"/admin/theme",label:"Customize brand colors, hero text & CSS"},
               {h:"/admin/mcp",label:"MCP tokens & WebSocket configuration"},

@@ -17,9 +17,113 @@ const handle = app.getRequestHandler();
 
 await app.prepare();
 
+import fs from 'fs';
+import path from 'path';
+
+let routesCache = null;
+let lastCacheTime = 0;
+const CACHE_TTL = 10000;
+const FALLBACK_FILE = path.join(process.cwd(), 'data', 'custom-routes.json');
+
+async function getCustomRoutes() {
+  const now = Date.now();
+  if (routesCache && now - lastCacheTime < CACHE_TTL) {
+    return routesCache;
+  }
+  try {
+    const list = await prisma.customRoute.findMany({ where: { enabled: true } });
+    if (list && list.length > 0) {
+      routesCache = list;
+      lastCacheTime = now;
+      return list;
+    }
+  } catch {}
+
+  // Fallback to local json file
+  try {
+    if (fs.existsSync(FALLBACK_FILE)) {
+      const raw = fs.readFileSync(FALLBACK_FILE, 'utf-8');
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        routesCache = list.filter(r => r.enabled !== false);
+        lastCacheTime = now;
+        return routesCache;
+      }
+    }
+  } catch {}
+
+  return routesCache || [];
+}
+
 const server = createServer(async (req, res) => {
   try {
     const parsedUrl = parse(req.url, true);
+    const pathname = (parsedUrl.pathname || '').trim().toLowerCase();
+
+    // Check custom routes for non-internal paths
+    if (
+      pathname &&
+      !pathname.startsWith('/_next') &&
+      !pathname.startsWith('/admin') &&
+      !pathname.startsWith('/api/admin') &&
+      !pathname.startsWith('/api/auth') &&
+      !pathname.startsWith('/api/chat') &&
+      !pathname.startsWith('/api/mcp')
+    ) {
+      const routes = await getCustomRoutes();
+      const matched = routes.find(r => {
+        if (!r.enabled) return false;
+        const rPath = (r.path || '').trim().toLowerCase();
+        if (rPath !== pathname) return false;
+        if (req.method === 'OPTIONS') return true;
+        if (!r.method || r.method === 'ALL') return true;
+        return r.method.toUpperCase() === req.method?.toUpperCase();
+      });
+
+      if (matched) {
+        // Handle CORS preflight
+        if (req.method === 'OPTIONS') {
+          res.writeHead(204, {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept',
+          });
+          res.end();
+          return;
+        }
+
+        // Apply custom headers
+        const headers = {
+          'Content-Type': matched.contentType || 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        };
+
+        if (matched.headers) {
+          try {
+            const extra = JSON.parse(matched.headers);
+            if (extra && typeof extra === 'object') {
+              for (const [k, v] of Object.entries(extra)) {
+                if (v !== undefined && v !== null) headers[k] = String(v);
+              }
+            }
+          } catch {}
+        }
+
+        res.writeHead(matched.statusCode || 200, headers);
+        res.end(matched.responseBody || '');
+
+        // Increment hit counter asynchronously
+        prisma.customRoute.update({
+          where: { id: matched.id },
+          data: { hitCount: { increment: 1 }, lastHitAt: new Date() }
+        }).catch(() => {});
+        return;
+      }
+    }
+
     await handle(req, res, parsedUrl);
   } catch (err) {
     console.error('Error occurred handling', req.url, err);
@@ -27,6 +131,7 @@ const server = createServer(async (req, res) => {
     res.end('Internal Server Error');
   }
 });
+
 
 // Create WebSocket server attached to the SAME HTTP SERVER (no different port!)
 const wss = new WebSocketServer({ noServer: true });

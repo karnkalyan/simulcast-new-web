@@ -21,6 +21,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
     {l:"Insights",href:"/admin/posts"},
     {l:"Inquiries",href:"/admin/inquiries"},
     {l:"Media Library",href:"/admin/media"},
+    {l:"Custom Routes",href:"/admin/custom-routes"},
     ...(user.role==="ADMIN"?[
       {l:"Brand & Themes",href:"/admin/theme"},
       {l:"MCP & Security",href:"/admin/mcp"},

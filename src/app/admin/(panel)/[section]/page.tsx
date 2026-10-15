@@ -6,6 +6,7 @@ import AdminMedia from "@/components/admin/AdminMedia";
 import AdminChat from "@/components/admin/AdminChat";
 import AdminTheme from "@/components/admin/AdminTheme";
 import AdminMcp from "@/components/admin/AdminMcp";
+import AdminCustomRoutes from "@/components/admin/AdminCustomRoutes";
 
 export const dynamic="force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function Section({params}:{params:Promise<{section:string}>
   const user=await requireAdmin();
 
   if(section==="chat") return <AdminChat/>;
+  if(section==="custom-routes"||section==="routes") return <AdminCustomRoutes/>;
   if(section==="theme"){
     if(user.role!=="ADMIN") notFound();
     return <AdminTheme/>;

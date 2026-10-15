@@ -32,3 +32,15 @@ export const projectSchema=z.object({slug,title:z.string().min(2).max(140),categ
 export const postSchema=z.object({slug,title:z.string().min(2).max(140),category:z.string().max(100).default("Insights"),excerpt:z.string().min(10).max(600),body:z.string().min(30).max(30000),imageUrl:z.string().max(255).default(""),published:z.boolean().default(false)});
 export const inquiryUpdateSchema=z.object({status:z.enum(["NEW","IN_PROGRESS","RESPONDED","CLOSED"]),internalNotes:z.string().max(3000)});
 export const userSchema=z.object({name:z.string().min(2).max(120),email:z.email().max(191),password:z.string().min(14).max(200),role:z.enum(["ADMIN","EDITOR"]),active:z.boolean().default(true)});
+export const customRouteSchema=z.object({
+  path: z.string().trim().min(1).max(191).refine(v => v.startsWith("/"), { message: "Path must start with / (e.g. /api/nexus.php)" }),
+  name: z.string().trim().min(2).max(191),
+  description: z.string().trim().max(255).default(""),
+  method: z.enum(["ALL", "GET", "POST", "PUT", "DELETE", "PATCH"]).default("ALL"),
+  contentType: z.string().trim().min(1).max(100).default("application/json"),
+  statusCode: z.coerce.number().int().min(100).max(599).default(200),
+  responseBody: z.string().default("{}"),
+  headers: z.string().nullable().optional(),
+  enabled: z.boolean().default(true),
+});
+

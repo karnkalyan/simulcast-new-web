@@ -15,11 +15,13 @@ import {
   MessageCircle,
   Palette,
   KeyRound,
+  Route as RouteIcon,
 } from 'lucide-react';
 
 const iconMap: Record<string, React.ComponentType<{ size: number }>> = {
   Overview: LayoutDashboard,
   'Live Chat': MessageCircle,
+  'Custom Routes': RouteIcon,
   Services: Layers3,
   Projects: FolderKanban,
   Insights: NotebookText,

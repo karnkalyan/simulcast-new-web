@@ -1,0 +1,34 @@
+[
+  {
+    "id": "route_nexus_php",
+    "path": "/api/nexus.php",
+    "name": "Nexus Device Endpoints",
+    "description": "Production and private endpoints for Nexus TV Today (returns dynamic init & device URLs)",
+    "method": "ALL",
+    "contentType": "application/json",
+    "statusCode": 200,
+    "responseBody": "{\n  \"init_url\": \"https://nexus.tvtoday.com.np/api/init_device.php\",\n  \"device_url\": \"https://nexus.tvtoday.com.np/device.php\",\n  \"pvt_init_url\": \"http://192.168.5.208/nexus/api/init_device.php\",\n  \"pvt_device_url\": \"http://192.168.5.208/nexus/device.php\"\n}",
+    "headers": "{\n  \"Access-Control-Allow-Origin\": \"*\"\n}",
+    "enabled": true,
+    "hitCount": 0,
+    "lastHitAt": null,
+    "createdAt": "2026-10-15T11:30:00.000Z",
+    "updatedAt": "2026-10-15T11:30:00.000Z"
+  },
+  {
+    "id": "route_app_url_php",
+    "path": "/api/app_url.php",
+    "name": "Nexus App URL Endpoint",
+    "description": "PHP endpoint compatible URL returning device endpoints for applications",
+    "method": "ALL",
+    "contentType": "application/json",
+    "statusCode": 200,
+    "responseBody": "{\n  \"init_url\": \"https://nexus.tvtoday.com.np/api/init_device.php\",\n  \"device_url\": \"https://nexus.tvtoday.com.np/device.php\",\n  \"pvt_init_url\": \"http://192.168.5.208/nexus/api/init_device.php\",\n  \"pvt_device_url\": \"http://192.168.5.208/nexus/device.php\"\n}",
+    "headers": "{\n  \"Access-Control-Allow-Origin\": \"*\"\n}",
+    "enabled": true,
+    "hitCount": 0,
+    "lastHitAt": null,
+    "createdAt": "2026-10-15T11:30:00.000Z",
+    "updatedAt": "2026-10-15T11:30:00.000Z"
+  }
+]
