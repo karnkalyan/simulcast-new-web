@@ -20,7 +20,10 @@ import {
   FileText,
   AlertCircle,
   Users,
+  Inbox,
+  Server,
 } from "lucide-react";
+import AdminWebmail from "./AdminWebmail";
 
 interface QueueItem {
   id: string;
@@ -69,7 +72,7 @@ interface QueueStats {
 }
 
 export default function AdminEmailQueue() {
-  const [activeTab, setActiveTab] = useState<"queue" | "logs" | "compose">("queue");
+  const [activeTab, setActiveTab] = useState<"webmail" | "accounts" | "queue" | "logs" | "compose">("webmail");
 
   // Queue state
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
@@ -407,9 +410,48 @@ export default function AdminEmailQueue() {
         style={{
           display: "flex",
           borderBottom: "2px solid #eee5f0",
-          gap: 24,
+          gap: 20,
+          flexWrap: "wrap",
         }}
       >
+        <button
+          onClick={() => setActiveTab("webmail")}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "12px 6px",
+            fontSize: 14,
+            fontWeight: activeTab === "webmail" ? 700 : 500,
+            color: activeTab === "webmail" ? "#e11d72" : "#6d6975",
+            borderBottom: activeTab === "webmail" ? "3px solid #e11d72" : "3px solid transparent",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Inbox size={16} /> Webmail Client
+        </button>
+
+        <button
+          onClick={() => setActiveTab("accounts")}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "12px 6px",
+            fontSize: 14,
+            fontWeight: activeTab === "accounts" ? 700 : 500,
+            color: activeTab === "accounts" ? "#e11d72" : "#6d6975",
+            borderBottom: activeTab === "accounts" ? "3px solid #e11d72" : "3px solid transparent",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Server size={16} /> Mail Accounts &amp; Server Setup
+        </button>
+
         <button
           onClick={() => setActiveTab("queue")}
           style={{
@@ -464,9 +506,15 @@ export default function AdminEmailQueue() {
             gap: 8,
           }}
         >
-          <Send size={16} /> Compose & Bulk Send
+          <Send size={16} /> Fast Bulk Sender
         </button>
       </div>
+
+      {/* TAB 0: WEBMAIL CLIENT */}
+      {activeTab === "webmail" && <AdminWebmail initialView="webmail" />}
+
+      {/* TAB 0.5: ACCOUNTS & SERVER SETUP */}
+      {activeTab === "accounts" && <AdminWebmail initialView="accounts" />}
 
       {/* TAB 1: QUEUE MANAGER */}
       {activeTab === "queue" && (

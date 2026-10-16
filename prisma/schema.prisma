@@ -371,3 +371,66 @@ model Vendor {
   @@index([category])
 }
 
+model MailAccount {
+  id             String           @id @default(cuid())
+  name           String           @db.VarChar(191) // e.g. "Simulcast Support NOC", "Info Desk"
+  email          String           @unique @db.VarChar(191) // e.g. "support@simulcast.com.np", "info@simulcast.com.np", "sales@simulcast.com.np"
+  isDefault      Boolean          @default(false)
+  status         String           @default("ACTIVE") @db.VarChar(32) // ACTIVE, DISABLED, ERROR
+  incomingType   String           @default("IMAP") @db.VarChar(32) // IMAP, POP3
+  incomingHost   String           @default("mail.simulcast.com.np") @db.VarChar(191)
+  incomingPort   Int              @default(993)
+  incomingSecure Boolean          @default(true)
+  incomingUser   String           @default("") @db.VarChar(191)
+  incomingPass   String           @default("") @db.VarChar(255)
+  outgoingHost   String           @default("mail.simulcast.com.np") @db.VarChar(191)
+  outgoingPort   Int              @default(587)
+  outgoingSecure Boolean          @default(false)
+  outgoingUser   String           @default("") @db.VarChar(191)
+  outgoingPass   String           @default("") @db.VarChar(255)
+  signature      String           @default("") @db.Text
+  color          String           @default("#e11d72") @db.VarChar(32)
+  syncInterval   Int              @default(5)
+  lastSyncAt     DateTime?
+  messages       WebmailMessage[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([status])
+  @@index([email])
+}
+
+model WebmailMessage {
+  id           String       @id @default(cuid())
+  accountId    String       @db.VarChar(191)
+  accountEmail String       @db.VarChar(191) // e.g. "support@simulcast.com.np"
+  account      MailAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  folder       String       @default("INBOX") @db.VarChar(32) // INBOX, SENT, DRAFTS, FAILED, TRASH, ARCHIVE
+  from         String       @db.VarChar(255)
+  fromEmail    String       @db.VarChar(191)
+  to           String       @db.Text
+  cc           String?      @db.Text
+  bcc          String?      @db.Text
+  replyTo      String?      @db.VarChar(191)
+  subject      String       @db.VarChar(255)
+  snippet      String       @default("") @db.VarChar(255)
+  bodyHtml     String       @db.LongText
+  bodyText     String?      @db.LongText
+  attachments  String?      @db.LongText // JSON array of attachments
+  isRead       Boolean      @default(false)
+  isStarred    Boolean      @default(false)
+  isDraft      Boolean      @default(false)
+  messageId    String?      @db.VarChar(255)
+  inReplyTo    String?      @db.VarChar(255)
+  date         DateTime     @default(now())
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([accountId])
+  @@index([accountEmail])
+  @@index([folder])
+  @@index([isRead])
+  @@index([isStarred])
+  @@index([date])
+}
+

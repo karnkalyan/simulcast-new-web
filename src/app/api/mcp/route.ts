@@ -17,6 +17,13 @@ import {
 } from "@/lib/email-queue";
 import { logAudit, getAuditLogs } from "@/lib/audit";
 import { getCustomMcpTools, executeCustomMcpTool } from "@/lib/mcp-manager";
+import {
+  getMailAccounts,
+  getWebmailMessages,
+  getWebmailMessage,
+  sendWebmailMessage,
+  syncMailbox,
+} from "@/lib/webmail";
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -906,6 +913,112 @@ const TOOLS = [
         category: { type: "string", description: "Filter category: MCP, EMAIL, INSIGHTS, MEDIA, AUTH, or ALL" },
         search: { type: "string", description: "Search by actor, action, or target" },
         limit: { type: "integer", description: "Max logs to retrieve (default 50)" },
+      },
+    },
+  },
+
+  // 13. WEBMAIL & MULTI-ACCOUNT EMAIL SUITE
+  {
+    name: "list_mail_accounts",
+    description: "List all configured email accounts on Simulcast mail server (e.g. support@simulcast.com.np, info@simulcast.com.np, sales@simulcast.com.np, kalyan@simulcast.com.np) with status, incoming/outgoing servers, and live unread counts.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "check_emails",
+    description: "Query and inspect emails from any configured account (e.g. 'info', 'support', 'sales', 'kalyan', or all mailboxes). Allows filtering by folder (INBOX, SENT, DRAFTS, FAILED, TRASH), read/unread status (UNREAD, READ, ALL), or keyword search.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        account: { type: "string", description: "Mailbox account to inspect: 'info', 'support', 'sales', 'kalyan', or full address (e.g. info@simulcast.com.np). Omit or set 'all' to search across all mailboxes." },
+        folder: { type: "string", description: "Folder: 'INBOX' (default), 'SENT', 'DRAFTS', 'FAILED', 'TRASH', or 'ALL'" },
+        filter: { type: "string", description: "Status filter: 'UNREAD', 'READ', 'STARRED', or 'ALL' (default 'ALL')" },
+        search: { type: "string", description: "Optional keyword to search in subject, sender, recipient, or body" },
+        limit: { type: "integer", description: "Maximum messages to return (default 10, max 50)" },
+      },
+    },
+  },
+  {
+    name: "get_email_details",
+    description: "Retrieve full email content, headers, body HTML, plain text, and attachment metadata by message ID.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Unique message ID to read" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "send_webmail",
+    description: "Compose and send an email directly from any configured Simulcast email account (e.g. support@simulcast.com.np, info@simulcast.com.np, sales@simulcast.com.np) with custom subject, HTML/plain text body, and optional attachments.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        fromAccount: { type: "string", description: "Sender account: 'support', 'info', 'sales', 'kalyan', or full email (e.g. info@simulcast.com.np). Default is primary support email." },
+        to: { type: "string", description: "Recipient email address (or comma-separated list)" },
+        cc: { type: "string", description: "Optional CC email address" },
+        bcc: { type: "string", description: "Optional BCC email address" },
+        subject: { type: "string", description: "Email subject line" },
+        body: { type: "string", description: "Email body in HTML or plain text/markdown" },
+        attachments: {
+          type: "array",
+          description: "Optional array of attachments",
+          items: {
+            type: "object",
+            properties: {
+              filename: { type: "string" },
+              url: { type: "string" },
+              path: { type: "string" },
+              contentType: { type: "string" },
+              contentBase64: { type: "string" },
+            },
+            required: ["filename"],
+          },
+        },
+      },
+      required: ["to", "subject", "body"],
+    },
+  },
+  {
+    name: "sync_mailbox",
+    description: "Trigger incoming mailbox synchronization to check and pull new emails and website inquiries into webmail inboxes.",
+    scopes: ["mcp:write"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        accountEmail: { type: "string", description: "Optional specific account email to sync, or omit for all accounts." },
       },
     },
   },
@@ -2954,9 +3067,198 @@ export async function POST(request: Request) {
           });
         }
 
+        // ==========================================
+        // 13. WEBMAIL & MULTI-ACCOUNT EMAIL TOOLS
+        // ==========================================
+        if (toolName === "list_mail_accounts") {
+          const accounts = await getMailAccounts();
+          const summary = accounts.map((a) => ({
+            id: a.id,
+            name: a.name,
+            email: a.email,
+            isDefault: a.isDefault,
+            status: a.status,
+            incoming: `${a.incomingType} ${a.incomingHost}:${a.incomingPort} (SSL: ${a.incomingSecure})`,
+            outgoing: `SMTP ${a.outgoingHost}:${a.outgoingPort} (SSL: ${a.outgoingSecure})`,
+            lastSyncAt: a.lastSyncAt,
+          }));
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(
+                    {
+                      totalAccounts: accounts.length,
+                      accounts: summary,
+                    },
+                    null,
+                    2
+                  ),
+                },
+              ],
+            },
+          });
+        }
+
+        if (toolName === "check_emails") {
+          const account = typeof args.account === "string" ? args.account.trim() : undefined;
+          const folder = typeof args.folder === "string" ? (args.folder.toUpperCase() as any) : "INBOX";
+          const filter = typeof args.filter === "string" ? (args.filter.toUpperCase() as any) : "ALL";
+          const search = typeof args.search === "string" ? args.search.trim() : undefined;
+          const limit = typeof args.limit === "number" ? Math.min(Math.max(1, args.limit), 50) : 10;
+
+          const data = await getWebmailMessages({
+            accountEmail: account,
+            folder,
+            filter,
+            search,
+            limit,
+          });
+
+          const simplified = data.messages.map((m) => ({
+            id: m.id,
+            account: m.accountEmail,
+            folder: m.folder,
+            from: m.from,
+            to: m.to,
+            subject: m.subject,
+            snippet: m.snippet,
+            date: m.date,
+            isRead: m.isRead,
+            isStarred: m.isStarred,
+            hasAttachments: Boolean(m.attachments && m.attachments.length > 0),
+            attachments: (m.attachments || []).map((att) => att.filename),
+          }));
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(
+                    {
+                      targetAccount: account || "ALL_MAILBOXES",
+                      folder,
+                      filter,
+                      unreadInFolder: data.counts.inboxUnread,
+                      totalMatches: data.total,
+                      messages: simplified,
+                    },
+                    null,
+                    2
+                  ),
+                },
+              ],
+            },
+          });
+        }
+
+        if (toolName === "get_email_details") {
+          const msgId = String(args.id || "").trim();
+          if (!msgId) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "'id' is required to retrieve email details." },
+            });
+          }
+
+          const message = await getWebmailMessage(msgId);
+          if (!message) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32004, message: `Email message with ID '${msgId}' not found.` },
+            });
+          }
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(message, null, 2) }],
+            },
+          });
+        }
+
+        if (toolName === "send_webmail") {
+          const to = args.to as string | string[];
+          const subject = String(args.subject || "").trim();
+          const body = String(args.body || "").trim();
+          const fromAccount = typeof args.fromAccount === "string" ? args.fromAccount.trim() : undefined;
+          const cc = args.cc as string | string[] | undefined;
+          const bcc = args.bcc as string | string[] | undefined;
+          const attachments = (args.attachments || []) as any[];
+
+          if (!to || !subject || !body) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "'to', 'subject', and 'body' are required to send webmail." },
+            });
+          }
+
+          const sendResult = await sendWebmailMessage({
+            fromAccount,
+            to,
+            cc,
+            bcc,
+            subject,
+            bodyHtml: body,
+            bodyText: body.replace(/<[^>]+>/g, " ").trim(),
+            attachments,
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(
+                    {
+                      success: sendResult.ok,
+                      messageId: sendResult.messageId,
+                      from: sendResult.message.from,
+                      to: sendResult.message.to,
+                      subject: sendResult.message.subject,
+                      folder: sendResult.message.folder,
+                      error: sendResult.error,
+                      note: sendResult.ok
+                        ? "Email delivered and saved to Sent folder in Webmail."
+                        : `Email delivery failed: ${sendResult.error}. Recorded in Failed folder for retry.`,
+                    },
+                    null,
+                    2
+                  ),
+                },
+              ],
+            },
+          });
+        }
+
+        if (toolName === "sync_mailbox") {
+          const accountEmail = typeof args.accountEmail === "string" ? args.accountEmail.trim() : undefined;
+          const syncResult = await syncMailbox(accountEmail);
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(syncResult, null, 2) }],
+            },
+          });
+        }
 
         // ==========================================
-        // 12. DYNAMIC CUSTOM MCP TOOLS (ADMIN CONFIGURABLE)
+        // 14. DYNAMIC CUSTOM MCP TOOLS (ADMIN CONFIGURABLE)
         // ==========================================
         const customRes = await executeCustomMcpTool(toolName || "", args, auth.identity || "MCP Client");
         if (customRes.ok || (customRes.error && !customRes.error.includes("not found or is currently disabled"))) {
