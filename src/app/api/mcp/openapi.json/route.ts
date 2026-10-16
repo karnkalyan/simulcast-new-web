@@ -1,0 +1,210 @@
+import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
+
+function resolveBaseUrl(request: Request): string {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = forwardedHost || request.headers.get("host") || "";
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const proto = forwardedProto || (host.includes("localhost") ? "http" : "https");
+
+  if (host && !host.includes("localhost") && !host.startsWith("127.")) {
+    return `${proto}://${host}`;
+  }
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL;
+  return (envUrl || "https://www.simulcast.com.np").replace(/\/$/, "");
+}
+
+export async function GET(request: Request) {
+  const serverUrl = resolveBaseUrl(request);
+
+  const openapiSpec = {
+    openapi: "3.1.0",
+    info: {
+      title: "Simulcast Technologies MCP & AI API",
+      version: "6.2.0",
+      description:
+        "Official OpenAI Actions & MCP API for Simulcast Technologies Pvt. Ltd. (Nepal). Send emails directly from support@simulcast.com.np, inspect company solutions and SIMUL product lines, upload blog assets, and submit inquiries.",
+      contact: {
+        name: "Simulcast Engineering Support",
+        email: "support@simulcast.com.np",
+        url: "https://www.simulcast.com.np",
+      },
+    },
+    servers: [
+      {
+        url: serverUrl,
+        description: "Simulcast Production Server",
+      },
+    ],
+    paths: {
+      "/api/mcp/send-email": {
+        post: {
+          operationId: "sendEmail",
+          summary: "Send email from Simulcast (support@simulcast.com.np)",
+          description:
+            "Dispatches an official email directly from Simulcast Technologies default support address (support@simulcast.com.np). Supports single or bulk recipients, HTML formatting, plain text fallback, attachments, CC, BCC, and background queueing.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    to: {
+                      type: "string",
+                      description: "Recipient email address (e.g. karnkalyan@gmail.com)",
+                    },
+                    subject: {
+                      type: "string",
+                      description: "Subject of the email",
+                    },
+                    html: {
+                      type: "string",
+                      description: "HTML content or full text body of the email",
+                    },
+                    text: {
+                      type: "string",
+                      description: "Optional plain text alternative",
+                    },
+                    cc: {
+                      type: "string",
+                      description: "Optional CC email address",
+                    },
+                    bcc: {
+                      type: "string",
+                      description: "Optional BCC email address",
+                    },
+                    queue: {
+                      type: "boolean",
+                      description: "Set true to place into background queue, or false for immediate dispatch",
+                    },
+                    attachments: {
+                      type: "array",
+                      description: "Optional array of file attachments",
+                      items: {
+                        type: "object",
+                        properties: {
+                          filename: { type: "string" },
+                          content: { type: "string", description: "Base64 encoded file content or text" },
+                          path: { type: "string", description: "Path to uploaded file asset" },
+                          contentType: { type: "string", description: "MIME type (e.g. application/pdf)" },
+                        },
+                        required: ["filename"],
+                      },
+                    },
+                  },
+                  required: ["to", "subject", "html"],
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Email dispatched successfully",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: { type: "boolean" },
+                      status: { type: "string" },
+                      from: { type: "string" },
+                      to: { type: "string" },
+                      messageId: { type: "string" },
+                      message: { type: "string" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/mcp/company-details": {
+        get: {
+          operationId: "getCompanyAndProductDetails",
+          summary: "Get official Simulcast company details, product lines, and services",
+          description:
+            "Retrieves rich company overview, 12 solutions categories (Broadcasting, IPTV, OTT, Fiber Core Networks, SIMUL software products, AI agents), published service specs, and official contacts.",
+          responses: {
+            "200": {
+              description: "Complete company and product profile",
+            },
+          },
+        },
+      },
+      "/api/mcp/inquiry": {
+        post: {
+          operationId: "submitInquiryAndSendProfile",
+          summary: "Submit client inquiry and automatically email company profile",
+          description:
+            "Logs a client inquiry in the Simulcast CRM system and immediately dispatches an automated company profile and product catalog email from support@simulcast.com.np to the requester.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    email: { type: "string", description: "Requester email address to receive company details" },
+                    organization: { type: "string" },
+                    phone: { type: "string" },
+                    interest: { type: "string" },
+                    message: { type: "string" },
+                  },
+                  required: ["name", "email", "message"],
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Inquiry registered and email dispatched",
+            },
+          },
+        },
+      },
+    },
+    components: {
+      securitySchemes: {
+        BearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          description: "Enter your Simulcast MCP API Token or Master Key",
+        },
+        ApiKeyAuth: {
+          type: "apiKey",
+          in: "header",
+          name: "x-mcp-key",
+          description: "Simulcast MCP Key header",
+        },
+      },
+    },
+    security: [
+      {
+        BearerAuth: [],
+      },
+    ],
+  };
+
+  return NextResponse.json(openapiSpec, {
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
+}

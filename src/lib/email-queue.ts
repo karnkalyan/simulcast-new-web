@@ -191,6 +191,8 @@ export async function recordEmailLog(log: Omit<StoredEmailLog, "id" | "createdAt
   return fullLog;
 }
 
+export const logEmailDelivery = recordEmailLog;
+
 /**
  * Add a single email to the queue
  */

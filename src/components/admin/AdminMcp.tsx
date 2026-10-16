@@ -1079,38 +1079,55 @@ export default function AdminMcp() {
       {activeTab === 'chatgpt' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ background: '#ffffff', border: '1px solid #eae4eb', borderRadius: 8, padding: 24 }}>
-            <h3 style={{ margin: 0, fontSize: 16, color: '#2b0d3a' }}>ChatGPT OpenAI Action Setup</h3>
+            <h3 style={{ margin: 0, fontSize: 16, color: '#2b0d3a' }}>ChatGPT OpenAI Action Setup & Schema</h3>
             <p style={{ margin: '6px 0 16px', fontSize: 13, color: '#7b6f84' }}>
-              Connect your custom GPT to Simulcast using the OAuth 2.0 endpoints or API Key header.
+              Connect your Custom GPT or OpenAI App to Simulcast to send emails from <code>support@simulcast.com.np</code>, fetch company solutions, and submit inquiries.
             </p>
+
+            <div style={{ background: '#fdf2f8', border: '1px solid #fbcfe8', borderRadius: 6, padding: 16, marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, color: '#9d174d', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertCircle size={16} /> Why did ChatGPT say &quot;exposes an inquiry submission tool, but not a direct email-sending tool&quot;?
+              </div>
+              <p style={{ margin: '6px 0 0', fontSize: 12, color: '#831843', lineHeight: 1.5 }}>
+                In ChatGPT Custom GPTs, ChatGPT only knows the tools defined in your <strong>Action Schema</strong>. If the old schema was imported, it only had <code>submit_inquiry</code>.
+                To enable <code>sendEmail</code>, simply copy the <strong>OpenAPI Schema URL</strong> or JSON below and paste it into <strong>ChatGPT &rarr; Edit GPT &rarr; Configure &rarr; Actions &rarr; Schema</strong>.
+              </p>
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ background: '#fcfafc', border: '1px solid #e7dfeb', padding: 14, borderRadius: 6 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#7b6f84' }}>MCP / ACTIONS SCHEMA URL</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#7b6f84' }}>OPENAPI 3.1 SCHEMA URL (IMPORT INTO CHATGPT)</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  <code style={{ fontSize: 12, color: '#2b0d3a' }}>{currentHost}/api/mcp</code>
+                  <code style={{ fontSize: 12, color: '#2b0d3a' }}>{currentHost}/api/mcp/openapi.json</code>
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(`${currentHost}/api/mcp`, 'schemaUrl')}
-                    style={{ border: 'none', background: 'transparent', color: '#e11d72', cursor: 'pointer' }}
+                    onClick={() => copyToClipboard(`${currentHost}/api/mcp/openapi.json`, 'openapiUrl')}
+                    style={{ border: 'none', background: 'transparent', color: '#e11d72', cursor: 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
                   >
-                    {copiedKey === 'schemaUrl' ? <Check size={14} /> : <Copy size={14} />}
+                    {copiedKey === 'openapiUrl' ? <Check size={14} /> : <Copy size={14} />} {copiedKey === 'openapiUrl' ? 'Copied URL!' : 'Copy URL'}
                   </button>
                 </div>
               </div>
 
               <div style={{ background: '#fcfafc', border: '1px solid #e7dfeb', padding: 14, borderRadius: 6 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#7b6f84' }}>OAUTH TOKEN URL (FOR CHATGPT ACTIONS)</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#7b6f84' }}>DIRECT EMAIL SENDER ENDPOINT (support@simulcast.com.np)</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  <code style={{ fontSize: 12, color: '#2b0d3a' }}>{currentHost}/api/oauth/token</code>
+                  <code style={{ fontSize: 12, color: '#2b0d3a' }}>{currentHost}/api/mcp/send-email</code>
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(`${currentHost}/api/oauth/token`, 'tokenUrl')}
-                    style={{ border: 'none', background: 'transparent', color: '#e11d72', cursor: 'pointer' }}
+                    onClick={() => copyToClipboard(`${currentHost}/api/mcp/send-email`, 'sendEmailUrl')}
+                    style={{ border: 'none', background: 'transparent', color: '#e11d72', cursor: 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
                   >
-                    {copiedKey === 'tokenUrl' ? <Check size={14} /> : <Copy size={14} />}
+                    {copiedKey === 'sendEmailUrl' ? <Check size={14} /> : <Copy size={14} />} {copiedKey === 'sendEmailUrl' ? 'Copied!' : 'Copy Endpoint'}
                   </button>
                 </div>
+              </div>
+
+              <div style={{ background: '#fcfafc', border: '1px solid #e7dfeb', padding: 14, borderRadius: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#7b6f84' }}>AUTHENTICATION TYPE IN CHATGPT ACTIONS</div>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#4a3e52' }}>
+                  Select <strong>API Key</strong> &rarr; Auth Type: <strong>Bearer</strong>, and enter your Master API Key or generated JWT Token.
+                </p>
               </div>
             </div>
           </div>
