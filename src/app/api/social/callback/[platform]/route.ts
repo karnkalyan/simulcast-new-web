@@ -66,6 +66,22 @@ export async function GET(
           }
         } catch {}
 
+        if (!authorUrn) {
+          try {
+            const meRes = await fetch("https://api.linkedin.com/v2/me", {
+              headers: { Authorization: `Bearer ${tokenData.access_token}` },
+            });
+            if (meRes.ok) {
+              const meInfo = await meRes.json();
+              if (meInfo.id) {
+                authorUrn = `urn:li:person:${meInfo.id}`;
+              }
+              const fullName = `${meInfo.localizedFirstName || ""} ${meInfo.localizedLastName || ""}`.trim();
+              if (fullName) authorName = fullName;
+            }
+          } catch {}
+        }
+
         const redirectUrl = new URL(`${baseUrl}/admin/social`);
         redirectUrl.searchParams.set("oauth_success", "linkedin");
         redirectUrl.searchParams.set("token", tokenData.access_token);

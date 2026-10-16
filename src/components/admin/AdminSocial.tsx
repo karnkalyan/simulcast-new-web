@@ -101,6 +101,7 @@ export default function AdminSocial() {
   const [liOrgUrn, setLiOrgUrn] = useState("");
   const [liToken, setLiToken] = useState("");
   const [liAccountType, setLiAccountType] = useState<"ORGANIZATION" | "PROFILE">("ORGANIZATION");
+  const [liUseOpenId, setLiUseOpenId] = useState(false);
 
   // Facebook Connect & Page Selection Flow
   const [fbAppId, setFbAppId] = useState("");
@@ -1334,11 +1335,45 @@ export default function AdminSocial() {
                 />
               </div>
 
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "#f8fafd", border: "1px solid #e2e8f0", padding: "10px 12px", borderRadius: 6 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#1e293b" }}>
+                  OAuth Scope Selection:
+                </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11 }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 6, cursor: "pointer", color: "#334155" }}>
+                    <input
+                      type="radio"
+                      name="liScope"
+                      checked={!liUseOpenId}
+                      onChange={() => setLiUseOpenId(false)}
+                      style={{ marginTop: 2 }}
+                    />
+                    <span>
+                      <strong>Publishing Only (<code>w_member_social</code>)</strong><br/>
+                      <span style={{ color: "#059669", fontWeight: 600 }}>Active on your LinkedIn app</span> — Posts to personal or company profiles.
+                    </span>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 6, cursor: "pointer", color: "#334155" }}>
+                    <input
+                      type="radio"
+                      name="liScope"
+                      checked={liUseOpenId}
+                      onChange={() => setLiUseOpenId(true)}
+                      style={{ marginTop: 2 }}
+                    />
+                    <span>
+                      <strong>Publishing + OpenID Profile (<code>openid profile w_member_social email</code>)</strong><br/>
+                      <span style={{ color: "#64748b" }}>Requires &ldquo;Sign In with LinkedIn using OpenID Connect&rdquo; added in Products tab.</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
               <div style={{ background: "#f8fafd", border: "1px solid #e2e8f0", padding: "10px 12px", borderRadius: 6, fontSize: 11, color: "#475569", lineHeight: 1.5 }}>
                 <strong style={{ color: "#0a66c2" }}>Official OAuth Redirect URL:</strong><br/>
                 Add this exact URI in your LinkedIn Developer Portal &gt; Auth &gt; Authorized redirect URLs:<br/>
                 <code style={{ wordBreak: "break-all", background: "#eef2ff", padding: "2px 6px", borderRadius: 3, display: "inline-block", marginTop: 4 }}>
-                  {typeof window !== "undefined" ? window.location.origin : "https://www.simulcast.com.np"}/api/social/callback/linkedin
+                  {typeof window !== "undefined" ? window.location.origin : "https://simulcast.com.np"}/api/social/callback/linkedin
                 </code>
               </div>
             </div>
@@ -1360,7 +1395,8 @@ export default function AdminSocial() {
                       return;
                     }
                     const redirectUri = encodeURIComponent(`${window.location.origin}/api/social/callback/linkedin`);
-                    const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${encodeURIComponent(liClientId.trim())}&redirect_uri=${redirectUri}&scope=openid%20profile%20w_member_social%20email`;
+                    const scope = liUseOpenId ? "openid%20profile%20w_member_social%20email" : "w_member_social";
+                    const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${encodeURIComponent(liClientId.trim())}&redirect_uri=${redirectUri}&scope=${scope}`;
                     window.location.href = authUrl;
                   }}
                   className="btn btn-outline btn-sm"
