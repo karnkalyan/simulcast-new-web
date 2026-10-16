@@ -1509,11 +1509,15 @@ export default function AdminSocial() {
                     >
                       <Facebook size={13} /> Sign in with Official Meta OAuth
                     </button>
-                    <div style={{ fontSize: 10, color: "#64748b", marginTop: 8 }}>
-                      Valid OAuth Redirect URI to register in Facebook Login settings:
-                      <code style={{ display: "block", background: "#ffffff", padding: "2px 6px", borderRadius: 3, marginTop: 2, wordBreak: "break-all" }}>
-                        {typeof window !== "undefined" ? window.location.origin : "https://simulcast.com.np"}/api/social/callback/facebook
-                      </code>
+                    <div style={{ fontSize: 10, color: "#475569", marginTop: 8, background: "#ffffff", padding: "8px 10px", borderRadius: 4, border: "1px solid #e2e8f0", lineHeight: 1.5 }}>
+                      <strong style={{ color: "#1e293b" }}>If Meta says &quot;Domain isn&apos;t included in app&apos;s domains&quot;:</strong>
+                      <ol style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+                        <li>In Meta Developer Portal &gt; <strong>App settings &gt; Basic &gt; App Domains</strong>: Add <code>simulcast.com.np</code> (and <code>localhost</code>).</li>
+                        <li>Scroll down &gt; <strong>+ Add platform &gt; Website &gt; Site URL</strong>: <code>{typeof window !== "undefined" ? window.location.origin : "https://simulcast.com.np"}</code></li>
+                        <li>In <strong>Facebook Login &gt; Settings &gt; Valid OAuth Redirect URIs</strong>: Add<br/>
+                          <code style={{ background: "#f1f5f9", padding: "1px 4px", borderRadius: 2 }}>{typeof window !== "undefined" ? window.location.origin : "https://simulcast.com.np"}/api/social/callback/facebook</code>
+                        </li>
+                      </ol>
                     </div>
                   </div>
 
