@@ -3,6 +3,7 @@ import Link from "next/link";
 import {ExternalLink} from "lucide-react";
 import AdminLogout from "@/components/admin/AdminLogout";
 import AdminNav from "@/components/admin/AdminNav";
+import ToastProvider from "@/components/ToastProvider";
 import {prisma} from "@/lib/db";
 
 export const dynamic="force-dynamic";
@@ -57,7 +58,10 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
             <span className="admin-avatar">{user.email[0]?.toUpperCase()}</span>
           </div>
         </header>
-        <div className="admin-content">{children}</div>
+        <div className="admin-content">
+          <ToastProvider />
+          {children}
+        </div>
       </div>
     </div>
   );

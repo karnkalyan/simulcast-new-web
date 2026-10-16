@@ -1,33 +1,47 @@
 'use client';
 
-import { staticVendors, staticClients } from '@/lib/constants';
+import { useState, useEffect } from 'react';
+
+const INITIAL_BRANDS = [
+  'BLACKMAGIC DESIGN',
+  'TV TODAY',
+  'FEELWORLD',
+  'AP1 HD',
+  'AVMATRIX',
+  'M-STAR',
+  'YOLOLIV',
+  'KANCHAN SKY',
+  'EARTH NEWS',
+  'FEWA HD',
+  'LAXMI TV',
+  'DRISTI PATHSHALA',
+  'SHREE RAM SECONDARY SCHOOL',
+  'APPAN TV',
+  'KISAN NET',
+];
 
 export default function BrandCrawl() {
-  // Extract pure vendor and client names only (no locations, no services)
-  const vendorNames = staticVendors.map((v) => v.name.toUpperCase());
-  const clientNames = staticClients.map((c) => c.name.toUpperCase());
+  const [brands, setBrands] = useState<string[]>(INITIAL_BRANDS);
 
-  // Combined single list: vendors and clients
-  const brandList = [
-    'BLACKMAGIC DESIGN',
-    'TV TODAY',
-    'FEELWORLD',
-    'AP1 HD',
-    'AVMATRIX',
-    'M-STAR',
-    'YOLOLIV',
-    'KANCHAN SKY',
-    'EARTH NEWS',
-    'FEWA HD',
-    'LAXMI TV',
-    'DRISTI PATHSHALA',
-    'SHREE RAM SECONDARY SCHOOL',
-    'APPAN TV',
-    'KISAN NET',
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/directory/brands')
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.brands && Array.isArray(data.brands) && data.brands.length > 0) {
+          setBrands(data.brands);
+        }
+      })
+      .catch(() => {
+        // Fallback to initial brands
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Repeat for continuous seamless loop
-  const seamlessList = [...brandList, ...brandList];
+  const seamlessList = [...brands, ...brands];
 
   return (
     <div className="sc-single-crawl-wrap" aria-label="Simulcast Technology Partners and Client Deployments">

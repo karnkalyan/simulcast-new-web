@@ -23,6 +23,7 @@ import {
   Inbox,
   Server,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import AdminWebmail from "./AdminWebmail";
 
 interface QueueItem {
@@ -143,6 +144,7 @@ export default function AdminEmailQueue() {
   async function handleProcessQueue() {
     setActionNotice(null);
     setActionError(null);
+    const toastId = toast.loading("Processing pending email queue...");
     try {
       const res = await fetch("/api/admin/email-queue/process", {
         method: "POST",
@@ -151,18 +153,23 @@ export default function AdminEmailQueue() {
       });
       const data = await res.json();
       if (res.ok) {
-        setActionNotice(`Queue run complete: ${data.sent} sent, ${data.failed} failed (${data.processed} total processed).`);
+        const msg = `Queue run complete: ${data.sent} sent, ${data.failed} failed (${data.processed} total processed).`;
+        setActionNotice(msg);
+        toast.success(msg, { id: toastId });
         await loadQueue();
         await loadLogs();
       } else {
         throw new Error(data.error || "Queue process failed");
       }
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Process error");
+      const msg = err instanceof Error ? err.message : "Process error";
+      setActionError(msg);
+      toast.error(msg, { id: toastId });
     }
   }
 
   async function handleRetry(id?: string) {
+    const toastId = toast.loading("Resetting failed emails...");
     try {
       const res = await fetch("/api/admin/email-queue/retry", {
         method: "POST",
@@ -170,10 +177,14 @@ export default function AdminEmailQueue() {
         body: JSON.stringify({ id }),
       });
       const data = await res.json();
-      setActionNotice(`Reset ${data.retried} failed email(s) to PENDING status.`);
+      const msg = `Reset ${data.retried} failed email(s) to PENDING status.`;
+      setActionNotice(msg);
+      toast.success(msg, { id: toastId });
       await loadQueue();
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Retry failed");
+      const msg = err instanceof Error ? err.message : "Retry failed";
+      setActionError(msg);
+      toast.error(msg, { id: toastId });
     }
   }
 
@@ -242,7 +253,9 @@ export default function AdminEmailQueue() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to enqueue");
-        setActionNotice(`Email to ${toInput} successfully queued with ID #${data.item?.id || "N/A"}.`);
+        const msg = `Email to ${toInput} successfully queued with ID #${data.item?.id || "N/A"}.`;
+        setActionNotice(msg);
+        toast.success(msg);
       } else {
         // Bulk Mode (up to 100+ emails)
         const rawList = bulkInput
@@ -269,7 +282,9 @@ export default function AdminEmailQueue() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Bulk queue failed");
-        setActionNotice(`Successfully queued ${data.totalQueued} emails in batch '${data.batchId}'.`);
+        const msg = `Successfully queued ${data.totalQueued} emails in batch '${data.batchId}'.`;
+        setActionNotice(msg);
+        toast.success(msg);
       }
 
       // Reset form
@@ -282,7 +297,9 @@ export default function AdminEmailQueue() {
       setActiveTab("queue");
       await loadQueue();
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Sending failed");
+      const msg = err instanceof Error ? err.message : "Sending failed";
+      setActionError(msg);
+      toast.error(msg);
     } finally {
       setSendingEmail(false);
     }
