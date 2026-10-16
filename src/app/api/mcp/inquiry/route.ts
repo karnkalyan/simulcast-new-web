@@ -39,6 +39,20 @@ export async function POST(request: Request) {
       console.warn("Could not write inquiry to DB, proceeding with email dispatch:", e);
     }
 
+    // Record into Webmail Inbox
+    try {
+      const { recordWebmailIncomingInquiry } = await import("@/lib/webmail");
+      await recordWebmailIncomingInquiry({
+        id: inquiryId,
+        name,
+        email,
+        organization,
+        phone,
+        interest,
+        message,
+      });
+    } catch {}
+
     // 2. Build rich branded company profile & product catalog email
     const subject = "Simulcast Technologies Pvt. Ltd. — Official Company Profile & Solutions Catalog";
     const html = `

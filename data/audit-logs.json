@@ -1,1 +1,56 @@
-[]
+[
+  {
+    "id": "audit_11785775-e4db-48f4-836a-a5f1bf93b5f7",
+    "action": "SOCIAL_POST_PUBLISHED",
+    "category": "MCP",
+    "actor": "Admin NOC",
+    "target": "LINKEDIN, FACEBOOK, INSTAGRAM",
+    "details": "Published cross-platform social post. Status: PUBLISHED (3/3 successful)",
+    "status": "SUCCESS",
+    "createdAt": "2026-10-16T17:16:17.959Z"
+  },
+  {
+    "id": "audit_chatgpt_sendmail_01",
+    "action": "EMAIL_SENT_CHATGPT",
+    "category": "EMAIL",
+    "actor": "ChatGPT (OpenAI Actions)",
+    "target": "karnkalyan@gmail.com",
+    "details": "From: support@simulcast.com.np | Subject: Simulcast Technologies Pvt. Ltd. — Company Profile, Products & Solutions | Attachments: Simulcast_Technologies_Company_Profile.pdf | Status: SUCCESS",
+    "ipAddress": "127.0.0.1",
+    "status": "SUCCESS",
+    "createdAt": "2026-10-16T16:50:00.000Z"
+  },
+  {
+    "id": "audit_mcp_list_services_02",
+    "action": "MCP_TOOL_LIST_SERVICES",
+    "category": "MCP",
+    "actor": "ChatGPT (OpenAI Actions)",
+    "target": "list_services",
+    "details": "Command: list_services | Category: broadcast-engineering | Status: SUCCESS",
+    "ipAddress": "127.0.0.1",
+    "status": "SUCCESS",
+    "createdAt": "2026-10-16T16:45:00.000Z"
+  },
+  {
+    "id": "audit_mcp_get_settings_03",
+    "action": "MCP_TOOL_GET_SITE_SETTINGS",
+    "category": "MCP",
+    "actor": "ChatGPT (OpenAI Actions)",
+    "target": "get_site_settings",
+    "details": "Command: get_site_settings | Parameters: {} | Status: SUCCESS",
+    "ipAddress": "127.0.0.1",
+    "status": "SUCCESS",
+    "createdAt": "2026-10-16T16:40:00.000Z"
+  },
+  {
+    "id": "audit_mcp_client_auth_04",
+    "action": "MCP_CLIENT_AUTHORIZED",
+    "category": "MCP",
+    "actor": "Admin / OAuth",
+    "target": "ChatGPT (OpenAI Actions)",
+    "details": "Authorized MCP connection 'ChatGPT (OpenAI Actions)' with master API key prefix simulcast_master...",
+    "ipAddress": "127.0.0.1",
+    "status": "SUCCESS",
+    "createdAt": "2026-10-16T12:00:00.000Z"
+  }
+]

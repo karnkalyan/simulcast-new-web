@@ -12,6 +12,21 @@ export async function submitInquiry(req:Request){
   const parsed=inquirySchema.safeParse(body);if(!parsed.success)return NextResponse.json({error:"Please check the form fields.",details:parsed.error.flatten()},{status:400});
   if(parsed.data.website)return NextResponse.json({ok:true});
   const {name,email,organization,phone,interest,message,timeline,preferredContact}=parsed.data;
-  try{await prisma.inquiry.create({data:{name,email,organization,phone,interest,message,internalNotes:`Timeline: ${timeline}\nPreferred contact: ${preferredContact}\nConsent: yes`}});return NextResponse.json({ok:true,message:"Your inquiry has been received."},{status:201})}
+  try{
+    const created = await prisma.inquiry.create({data:{name,email,organization,phone,interest,message,internalNotes:`Timeline: ${timeline}\nPreferred contact: ${preferredContact}\nConsent: yes`}});
+    try {
+      const { recordWebmailIncomingInquiry } = await import("@/lib/webmail");
+      await recordWebmailIncomingInquiry({
+        id: created.id,
+        name,
+        email,
+        organization,
+        phone,
+        interest,
+        message,
+      });
+    } catch {}
+    return NextResponse.json({ok:true,message:"Your inquiry has been received."},{status:201})
+  }
   catch{ return NextResponse.json({error:"Inquiry service is temporarily unavailable. Please try again later."},{status:503}) }
 }

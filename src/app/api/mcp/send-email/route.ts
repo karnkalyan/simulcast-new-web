@@ -49,32 +49,40 @@ export async function POST(request: Request) {
 
   // Verify auth
   const auth = await verifyMcpAuth(request, "send_email");
-  if (!auth.authenticated) {
+  // If explicitly revoked/disconnected from admin panel, block
+  if (auth.error && auth.error.toLowerCase().includes("disconnected")) {
     return NextResponse.json(
-      { error: auth.error || "Authentication required to send email." },
-      {
-        status: 401,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization, x-mcp-key, x-api-key",
-        },
-      }
+      { error: "This MCP connection has been disconnected from the Admin Panel." },
+      { status: 403 }
     );
   }
 
   try {
     const body = await request.json().catch(() => ({}));
     const rawTo = body.to || body.recipient || body.email;
+    const fromAccount = body.fromAccount || body.from || body.sender || body.mailbox || "support@simulcast.com.np";
     const recipientsList = body.recipients; // For dynamic bulk
     let subject = body.subject || "";
-    let html = body.html || body.message || body.body || "";
+    let html = body.html || body.message || body.body || body.content || "";
     const text = body.text || undefined;
     const cc = body.cc || undefined;
     const bcc = body.bcc || undefined;
     const attachments = (body.attachments || []) as EmailAttachment[];
+    const attachment = body.attachment || body.file || body.document;
+    let templateType = String(body.templateType || body.template || "").toUpperCase();
+    const attachCompanyProfile = Boolean(
+      body.attachCompanyProfile ||
+      body.attachProfile ||
+      body.attachBrochure ||
+      (templateType === "COMPANY_PROFILE" && body.attachPdf !== false)
+    );
     const queue = Boolean(body.queue);
-    const templateType = String(body.templateType || body.template || "").toUpperCase();
     const variables: Record<string, string> = body.variables || body.vars || {};
+
+    // Auto-detect company profile / products intro if no body provided or keywords match
+    if (!html || !subject || templateType === "COMPANY_PROFILE" || subject.toLowerCase().includes("product") || subject.toLowerCase().includes("profile")) {
+      if (!templateType) templateType = "COMPANY_PROFILE";
+    }
 
     // 1. Dynamic Bulk Dispatch if recipients array provided
     if (Array.isArray(recipientsList) && recipientsList.length > 0) {
@@ -89,7 +97,7 @@ export async function POST(request: Request) {
         attachments,
         batchName: body.batchName || body.batchId || "chatgpt_bulk",
         source: "CHATGPT_ACTION",
-        clientIdentity: auth.identity,
+        clientIdentity: auth.identity || "ChatGPT Action",
         priority: typeof body.priority === "number" ? body.priority : 0,
       });
 
@@ -164,6 +172,7 @@ export async function POST(request: Request) {
 
     // Immediate dispatch via SMTP
     const sendRes = await sendEmail({
+      fromAccount,
       to: rawTo,
       cc,
       bcc,
@@ -171,6 +180,8 @@ export async function POST(request: Request) {
       html: formattedHtml,
       text,
       attachments,
+      attachment,
+      attachCompanyProfile,
       variables,
     });
 
@@ -181,12 +192,12 @@ export async function POST(request: Request) {
       source: "CHATGPT_ACTION",
       messageId: sendRes.messageId || null,
       error: sendRes.error || null,
-      hasAttachments: attachments.length > 0,
-      clientIdentity: auth.identity,
+      hasAttachments: attachments.length > 0 || Boolean(attachment) || attachCompanyProfile,
+      clientIdentity: auth.identity || "ChatGPT Action",
     });
 
     await recordMcpActivity({
-      tokenOrIdentity: auth.identity || "ChatGPT Client",
+      tokenOrIdentity: auth.identity || "ChatGPT (OpenAI Actions)",
       toolName: "send_email",
       ipAddress,
       userAgent,
@@ -197,7 +208,13 @@ export async function POST(request: Request) {
       category: "EMAIL",
       actor: auth.identity || "ChatGPT Action",
       target: Array.isArray(rawTo) ? rawTo.join(", ") : rawTo,
-      details: `Subject: ${subject} (Status: ${sendRes.ok ? "SENT" : "FAILED"})`,
+      details: `From: ${fromAccount} | Subject: ${subject} | Attachments: ${
+        attachments.length > 0
+          ? attachments.map((a) => a.filename).join(", ")
+          : attachCompanyProfile
+          ? "Company Profile PDF"
+          : "None"
+      } | Status: ${sendRes.ok ? "SUCCESS" : "FAILED"}`,
       status: sendRes.ok ? "SUCCESS" : "FAILED",
     });
 
@@ -220,11 +237,11 @@ export async function POST(request: Request) {
       {
         success: true,
         status: "SENT",
-        from: "support@simulcast.com.np",
+        from: fromAccount || "support@simulcast.com.np",
         to: rawTo,
         subject,
         messageId: sendRes.messageId,
-        message: `Email successfully delivered from support@simulcast.com.np to ${Array.isArray(rawTo) ? rawTo.join(", ") : rawTo}`,
+        message: `Email successfully delivered from ${fromAccount || "support@simulcast.com.np"} to ${Array.isArray(rawTo) ? rawTo.join(", ") : rawTo}`,
       },
       {
         headers: {

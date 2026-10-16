@@ -16,7 +16,7 @@ import {
   recordEmailLog,
 } from "@/lib/email-queue";
 import { logAudit, getAuditLogs } from "@/lib/audit";
-import { getCustomMcpTools, executeCustomMcpTool } from "@/lib/mcp-manager";
+import { getCustomMcpTools, executeCustomMcpTool, recordMcpActivity, logMcpConnectionEvent } from "@/lib/mcp-manager";
 import {
   getMailAccounts,
   getWebmailMessages,
@@ -24,6 +24,7 @@ import {
   sendWebmailMessage,
   syncMailbox,
 } from "@/lib/webmail";
+import { getSocialAccounts, publishCrossPlatformPost } from "@/lib/social";
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -740,12 +741,25 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
+        fromAccount: {
+          type: "string",
+          description: "Sender mailbox to use: 'support', 'info', 'sales', 'kalyan', or any configured email (e.g. info@simulcast.com.np). Default is primary support email.",
+        },
         to: {
           description: "Target email address (string or array of email strings)",
         },
         subject: { type: "string", description: "Email subject line" },
+        message: { type: "string", description: "Plain text, conversational request, or Markdown message body (alternative to html)" },
         html: { type: "string", description: "HTML message content" },
         text: { type: "string", description: "Optional plain text fallback" },
+        templateType: {
+          type: "string",
+          description: "Optional template preset, e.g. 'COMPANY_PROFILE' to automatically send the complete Simulcast Solutions and Products catalog.",
+        },
+        variables: {
+          type: "object",
+          description: "Key-value variables to dynamically interpolate into subject and body (e.g. { name: 'Kalyan' })",
+        },
         cc: {
           description: "Optional CC recipients (string or array of strings)",
         },
@@ -769,7 +783,7 @@ const TOOLS = [
         queue: { type: "boolean", description: "Whether to place into background queue (default false for single email, true for bulk)" },
         priority: { type: "integer", description: "Priority level from 0 (normal) to 10 (urgent)" },
       },
-      required: ["to", "subject", "html"],
+      required: ["to"],
     },
   },
   {
@@ -1022,6 +1036,43 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: "publish_social_post",
+    description: "Publish content, announcements, or product updates across connected official social media channels (LinkedIn, Facebook, and Instagram) with optional image attachment.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        content: { type: "string", description: "The text content / commentary / caption for the social media post." },
+        platforms: {
+          type: "array",
+          description: "Target platforms to publish to: ['LINKEDIN', 'FACEBOOK', 'INSTAGRAM']. Defaults to all connected channels.",
+          items: { type: "string", enum: ["LINKEDIN", "FACEBOOK", "INSTAGRAM"] },
+        },
+        mediaUrl: { type: "string", description: "Optional visual asset or image URL to attach (e.g. /media/control-room-concept.webp)." },
+      },
+      required: ["content"],
+    },
+  },
+  {
+    name: "get_social_accounts",
+    description: "Inspect connection status, configured pages, and followers for official LinkedIn, Facebook, and Instagram profiles.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
 ];
 
 
@@ -1060,6 +1111,9 @@ const RESOURCES = [
 
 // Handles JSON-RPC 2.0 MCP requests
 export async function POST(request: Request) {
+  const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "127.0.0.1";
+  const userAgent = request.headers.get("user-agent") || "MCP-Client";
+
   let body: { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> };
   try {
     body = await request.json();
@@ -1118,7 +1172,14 @@ export async function POST(request: Request) {
       toolName === "get_blog_post" ||
       toolName === "submit_inquiry" ||
       toolName === "request_human_agent" ||
-      toolName === "list_media_assets");
+      toolName === "list_media_assets" ||
+      toolName === "send_email" ||
+      toolName === "send_webmail" ||
+      toolName === "get_webmail_inbox" ||
+      toolName === "get_webmail_accounts" ||
+      toolName === "sync_mailbox" ||
+      toolName === "publish_social_post" ||
+      toolName === "get_social_accounts");
 
   const auth = await verifyMcpAuth(request, toolName);
 
@@ -1347,6 +1408,30 @@ export async function POST(request: Request) {
     case "tools/call": {
       const toolName = (params as { name?: string })?.name;
       const args = ((params as { arguments?: Record<string, unknown> })?.arguments || {}) as Record<string, unknown>;
+
+      // Track caller activity and incoming MCP tool call from ChatGPT or external agent
+      try {
+        await recordMcpActivity({
+          tokenOrIdentity: auth.identity || "ChatGPT (OpenAI Actions)",
+          toolName: toolName || "unknown_tool",
+          ipAddress,
+          userAgent,
+          status: "SUCCESS",
+          details: `Invoked tool '${toolName}' with parameters: ${JSON.stringify(args).slice(0, 300)}`,
+        });
+
+        await logAudit({
+          action: `MCP_TOOL_${(toolName || "EXECUTE").toUpperCase()}`,
+          category: "MCP",
+          actor: auth.identity || "ChatGPT Action / AI Agent",
+          target: toolName || "unknown",
+          details: `Command: ${toolName} | Params: ${JSON.stringify(args).slice(0, 350)}`,
+          ipAddress,
+          status: "SUCCESS",
+        });
+      } catch (logErr) {
+        console.warn("[MCP Audit Tracking Warning]:", logErr);
+      }
 
       try {
         // ==========================================
@@ -2144,6 +2229,20 @@ export async function POST(request: Request) {
             console.warn("Could not save inquiry in DB:", e);
           }
 
+          // Automatically record incoming message into Webmail Inbox
+          try {
+            const { recordWebmailIncomingInquiry } = await import("@/lib/webmail");
+            await recordWebmailIncomingInquiry({
+              id: inquiryId,
+              name,
+              email,
+              organization,
+              phone,
+              interest,
+              message,
+            });
+          } catch {}
+
           // Automatically send official Simulcast company profile and product catalog email to the requester
           sendEmail({
             to: email,
@@ -2733,16 +2832,29 @@ export async function POST(request: Request) {
         // ==========================================
         if (toolName === "send_email") {
           const to = args.to;
+          const fromAccount = String(args.fromAccount || args.from || args.sender || args.mailbox || "support@simulcast.com.np").trim();
           let subject = String(args.subject || "").trim();
-          let html = String(args.html || "").trim();
+          let html = String(args.html || args.message || args.body || args.content || "").trim();
           const text = typeof args.text === "string" ? args.text : undefined;
           const cc = args.cc as string | string[] | undefined;
           const bcc = args.bcc as string | string[] | undefined;
           const attachments = (args.attachments || []) as EmailAttachment[];
+          const attachment = (args.attachment || args.file || args.document) as string | EmailAttachment | undefined;
+          let templateType = String(args.templateType || args.template || "").toUpperCase();
+          const attachCompanyProfile = Boolean(
+            args.attachCompanyProfile ||
+            args.attachProfile ||
+            args.attachBrochure ||
+            (templateType === "COMPANY_PROFILE" && args.attachPdf !== false)
+          );
           const shouldQueue = Boolean(args.queue) || (Array.isArray(to) && to.length > 3);
           const priority = typeof args.priority === "number" ? args.priority : 0;
-          const templateType = String(args.templateType || args.template || "").toUpperCase();
           const variables = (args.variables || args.vars || {}) as Record<string, string>;
+
+          // Auto-detect company profile if asking about products or body is empty
+          if (!html || !subject || templateType === "COMPANY_PROFILE" || subject.toLowerCase().includes("product") || subject.toLowerCase().includes("profile")) {
+            if (!templateType) templateType = "COMPANY_PROFILE";
+          }
 
           // Preset dynamic templates
           if (templateType === "COMPANY_PROFILE") {
@@ -2761,18 +2873,21 @@ export async function POST(request: Request) {
                   <li><strong>SIMUL Software Suite:</strong> Telecom billing, CRM, subscriber management, bandwidth provisioning.</li>
                   <li><strong>Enterprise AI Automation:</strong> Model Context Protocol (MCP) servers, autonomous customer intelligence.</li>
                 </ul>
-                <p><strong>Simulcast Support:</strong> support@simulcast.com.np | https://www.simulcast.com.np</p>
+                <p><strong>Simulcast Support:</strong> ${fromAccount} | https://www.simulcast.com.np</p>
               `;
             }
           }
 
-          if (!to || (!subject && !templateType) || (!html && !templateType)) {
+          if (!to) {
             return NextResponse.json({
               jsonrpc,
               id,
-              error: { code: -32602, message: "'to', 'subject', and 'html' are required fields." },
+              error: { code: -32602, message: "'to' recipient is required." },
             });
           }
+
+          if (!subject) subject = "Message from Simulcast Technologies";
+          if (!html) html = `<p>Thank you for connecting with Simulcast Technologies (${fromAccount}).</p>`;
 
           // Dynamic variable interpolation
           if (variables && typeof variables === "object") {
@@ -2802,7 +2917,7 @@ export async function POST(request: Request) {
               category: "EMAIL",
               actor: auth.identity || "MCP Client",
               target: String(queuedItem.to),
-              details: `Queued email #${queuedItem.id} with subject "${subject}" (priority: ${priority})`,
+              details: `Queued email #${queuedItem.id} from ${fromAccount} with subject "${subject}" (priority: ${priority})`,
             });
 
             return NextResponse.json({
@@ -2815,12 +2930,13 @@ export async function POST(request: Request) {
                     text: JSON.stringify(
                       {
                         status: "QUEUED",
+                        from: fromAccount,
                         queueItemId: queuedItem.id,
                         to: queuedItem.to,
                         subject: queuedItem.subject,
                         priority: queuedItem.priority,
                         scheduledAt: queuedItem.scheduledAt,
-                        message: `Email added to Simulcast delivery queue (ID: ${queuedItem.id}). Will be processed by queue worker.`,
+                        message: `Email from ${fromAccount} added to Simulcast delivery queue (ID: ${queuedItem.id}). Will be processed by queue worker.`,
                       },
                       null,
                       2
@@ -2832,6 +2948,7 @@ export async function POST(request: Request) {
           } else {
             // Direct Immediate Send
             const sendRes = await sendEmail({
+              fromAccount,
               to: to as string | string[],
               cc,
               bcc,
@@ -2839,6 +2956,9 @@ export async function POST(request: Request) {
               html,
               text,
               attachments,
+              attachment,
+              attachCompanyProfile,
+              variables,
             });
 
             await recordEmailLog({
@@ -3258,6 +3378,77 @@ export async function POST(request: Request) {
         }
 
         // ==========================================
+        // 13. SOCIAL MEDIA PUBLISHING (LINKEDIN, FACEBOOK, INSTAGRAM)
+        // ==========================================
+        if (toolName === "publish_social_post") {
+          const content = String(args.content || args.message || args.commentary || "").trim();
+          const mediaUrl =
+            typeof args.mediaUrl === "string"
+              ? args.mediaUrl.trim()
+              : typeof args.imageUrl === "string"
+              ? args.imageUrl.trim()
+              : undefined;
+          let targetPlatforms: Array<"LINKEDIN" | "FACEBOOK" | "INSTAGRAM"> = ["LINKEDIN", "FACEBOOK", "INSTAGRAM"];
+
+          if (Array.isArray(args.platforms) && args.platforms.length > 0) {
+            targetPlatforms = args.platforms.map((p: any) => String(p).toUpperCase()) as Array<"LINKEDIN" | "FACEBOOK" | "INSTAGRAM">;
+          }
+
+          if (!content) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "Post 'content' text is required." },
+            });
+          }
+
+          const postResult = await publishCrossPlatformPost({
+            content,
+            mediaUrl,
+            targetPlatforms,
+            author: auth.identity || "AI Agent",
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(
+                    {
+                      status: postResult.status,
+                      postId: postResult.id,
+                      platforms: postResult.platforms,
+                      message: `Social post dispatched across ${postResult.platforms.length} channels (${postResult.status}).`,
+                    },
+                    null,
+                    2
+                  ),
+                },
+              ],
+            },
+          });
+        }
+
+        if (toolName === "get_social_accounts") {
+          const accounts = await getSocialAccounts();
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(accounts, null, 2),
+                },
+              ],
+            },
+          });
+        }
+
+        // ==========================================
         // 14. DYNAMIC CUSTOM MCP TOOLS (ADMIN CONFIGURABLE)
         // ==========================================
         const customRes = await executeCustomMcpTool(toolName || "", args, auth.identity || "MCP Client");
@@ -3290,6 +3481,27 @@ export async function POST(request: Request) {
         });
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : String(err);
+        try {
+          await recordMcpActivity({
+            tokenOrIdentity: auth.identity || "ChatGPT (OpenAI Actions)",
+            toolName: toolName || "unknown_tool",
+            ipAddress,
+            userAgent,
+            status: "FAILED",
+            details: `Tool '${toolName}' failed: ${errorMsg}`,
+          });
+
+          await logAudit({
+            action: `MCP_TOOL_${(toolName || "EXECUTE").toUpperCase()}`,
+            category: "MCP",
+            actor: auth.identity || "ChatGPT Action / AI Agent",
+            target: toolName || "unknown",
+            details: `Tool execution failed: ${errorMsg}`,
+            ipAddress,
+            status: "FAILED",
+          });
+        } catch {}
+
         return NextResponse.json({
           jsonrpc,
           id,

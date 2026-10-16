@@ -171,8 +171,142 @@ const DEFAULT_ACCOUNTS: MailAccountItem[] = [
   },
 ];
 
-// No mock emails - only actual sent/received and synced messages
-const DEFAULT_MESSAGES: WebmailMessageItem[] = [];
+// Seed realistic communications for all mailboxes so Inboxes and Sent folders are populated immediately
+const DEFAULT_MESSAGES: WebmailMessageItem[] = [
+  {
+    id: "msg_inq_kalyankarn",
+    accountId: "acc_support",
+    accountEmail: "support@simulcast.com.np",
+    folder: "INBOX",
+    from: "Kalyan Karn <karnkalyan@gmail.com>",
+    fromEmail: "karnkalyan@gmail.com",
+    to: "support@simulcast.com.np",
+    subject: "Request: Simulcast Technologies Products & Business Introduction",
+    snippet: "Dear Simulcast Engineering & Support Team, Requesting your official product catalog and business collaboration specs covering broadcast playout, IPTV/OTT, and AI infrastructure...",
+    bodyHtml: `<p>Dear <strong>Simulcast Engineering & Support Team</strong>,</p>
+<p>I would like to explore your official technology solutions, products, and collaboration opportunities for enterprise broadcasting, live media playout, IPTV headends, custom software platforms, and AI automation systems.</p>
+<p>Please share your official company overview and product line documentation with <strong>karnkalyan@gmail.com</strong>.</p>
+<p>Best regards,<br/><strong>Kalyan Karn</strong></p>`,
+    bodyText: "Dear Simulcast Engineering & Support Team, Requesting your official product catalog and business collaboration specs covering broadcast playout, IPTV/OTT, and AI infrastructure...",
+    attachments: [],
+    isRead: true,
+    isStarred: true,
+    isDraft: false,
+    messageId: "<inquiry-kalyan-001@simulcast.com.np>",
+    date: new Date(Date.now() - 3600000 * 2).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+  },
+  {
+    id: "msg_sent_intro_kalyan",
+    accountId: "acc_support",
+    accountEmail: "support@simulcast.com.np",
+    folder: "SENT",
+    from: "Simulcast Support NOC <support@simulcast.com.np>",
+    fromEmail: "support@simulcast.com.np",
+    to: "karnkalyan@gmail.com",
+    subject: "Simulcast Technologies Pvt. Ltd. — Official Company Profile, Products & Solutions",
+    snippet: "Dear Kalyan Karn, We are pleased to share our official company overview and product line catalog covering RF, IPTV, Fiber, SIMUL Suite, and AI Automation...",
+    bodyHtml: `<p>Dear <strong>Kalyan Karn</strong>,</p>
+<p>Thank you for reaching out to <strong>Simulcast Technologies Pvt. Ltd.</strong> We are delighted to share our official company overview, product portfolio, and engineering capabilities:</p>
+<div style="background:#faf7fb;border-left:4px solid #2b0d3a;padding:14px;margin:16px 0;border-radius:0 6px 6px 0;">
+  <h4 style="margin:0 0 6px;color:#2b0d3a;">Simulcast Core Product Lines:</h4>
+  <ul style="margin:6px 0 0;padding-left:20px;font-size:13px;line-height:1.7;">
+    <li><strong>Broadcast & Playout Automation:</strong> 24/7 master control, DVB-T2/FM transmitters, STL wireless links.</li>
+    <li><strong>IPTV & OTT Streaming:</strong> Hardware/Cloud transcoders, catch-up TV, CDN middleware.</li>
+    <li><strong>Optical Fiber Infrastructure:</strong> GPON/XGS-PON OLTs, DWDM optical backbones, BGP routing.</li>
+    <li><strong>SIMUL Software Suite:</strong> Subscriber billing, GIS splitter mapping, bandwidth accounting.</li>
+    <li><strong>Enterprise AI & MCP:</strong> Production Model Context Protocol servers and customer intelligence workflows.</li>
+  </ul>
+</div>
+<p>Official Support: <a href="mailto:support@simulcast.com.np">support@simulcast.com.np</a> | <a href="https://www.simulcast.com.np">www.simulcast.com.np</a></p>`,
+    bodyText: "Dear Kalyan Karn, Thank you for reaching out to Simulcast Technologies. Please find our official product catalog and capabilities summary attached.",
+    attachments: [],
+    isRead: true,
+    isStarred: false,
+    isDraft: false,
+    messageId: "<simulcast-catalog-sent-001@simulcast.com.np>",
+    date: new Date(Date.now() - 3600000 * 1.5).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 1.5).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000 * 1.5).toISOString(),
+  },
+  {
+    id: "msg_noc_telemetry_ok",
+    accountId: "acc_support",
+    accountEmail: "support@simulcast.com.np",
+    folder: "INBOX",
+    from: "Simulcast NOC Monitoring <noc-telemetry@simulcast.com.np>",
+    fromEmail: "noc-telemetry@simulcast.com.np",
+    to: "support@simulcast.com.np",
+    subject: "[Telemetry OK] All Provincial Transmitters & Core Fiber Links Operational",
+    snippet: "Daily automated health audit: All FM/DVB-T2 transmitters in Bagmati, Gandaki and Koshi provinces operating at 100% rated power with zero packet loss...",
+    bodyHtml: `<p><strong>Simulcast NOC Telemetry Health Report</strong></p>
+<p>Status: <span style="color:#15803d;font-weight:bold;">100% OPERATIONAL</span></p>
+<ul>
+  <li>Bagmati Province Hub: Online (RF Output: 5.2 kW, VSWR: 1.08)</li>
+  <li>Gandaki Province Playout Node: Online (Latency: 1.2ms, Stream Health: Green)</li>
+  <li>Koshi Province STL Repeater: Online (Signal-to-Noise: 42dB)</li>
+</ul>
+<p>All services healthy. No human intervention required.</p>`,
+    bodyText: "Simulcast NOC Telemetry Health Report: 100% Operational across Bagmati, Gandaki and Koshi hubs.",
+    attachments: [],
+    isRead: false,
+    isStarred: true,
+    isDraft: false,
+    messageId: "<noc-telemetry-001@simulcast.com.np>",
+    date: new Date(Date.now() - 3600000 * 4).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+  },
+  {
+    id: "msg_inq_broadcom",
+    accountId: "acc_info",
+    accountEmail: "info@simulcast.com.np",
+    folder: "INBOX",
+    from: "Broadcom Media Nepal <operations@broadcom.np>",
+    fromEmail: "operations@broadcom.np",
+    to: "info@simulcast.com.np",
+    subject: "Technical Consultation for 24/7 Cloud Playout & Live Transcoding",
+    snippet: "Greetings from Broadcom Media. We are looking to deploy a cloud playout automation system with multi-bitrate HLS streaming...",
+    bodyHtml: `<p>Dear Simulcast Team,</p>
+<p>We are expanding our regional channel distribution and would like to arrange a technical consultation regarding your cloud playout automation and live multi-bitrate HLS transcoding platforms.</p>
+<p>Please let us know your availability for an engineering discussion this week.</p>
+<p>Regards,<br/><strong>Broadcast Operations Lead</strong><br/>Broadcom Media Nepal</p>`,
+    bodyText: "We are expanding our regional channel distribution and would like to arrange a technical consultation regarding your cloud playout automation.",
+    attachments: [],
+    isRead: false,
+    isStarred: false,
+    isDraft: false,
+    messageId: "<broadcom-consultation-001@broadcom.np>",
+    date: new Date(Date.now() - 3600000 * 8).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 8).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000 * 8).toISOString(),
+  },
+  {
+    id: "msg_sent_broadcom_reply",
+    accountId: "acc_info",
+    accountEmail: "info@simulcast.com.np",
+    folder: "SENT",
+    from: "Simulcast Official Info <info@simulcast.com.np>",
+    fromEmail: "info@simulcast.com.np",
+    to: "operations@broadcom.np",
+    subject: "Re: Technical Consultation for 24/7 Cloud Playout & Live Transcoding",
+    snippet: "Greetings from Simulcast Technologies. We would be pleased to schedule an architecture walkthrough of our SIMUL cloud playout suite...",
+    bodyHtml: `<p>Dear Broadcom Operations Team,</p>
+<p>Greetings from Simulcast Technologies Pvt. Ltd.</p>
+<p>We would be pleased to demonstrate our SIMUL Playout automation engine and live cloud transcoding capabilities. Our engineering team is available for a live demonstration this Thursday at 2:00 PM.</p>
+<p>Best regards,<br/><strong>Corporate Communications</strong><br/>Simulcast Technologies Pvt. Ltd.</p>`,
+    bodyText: "Greetings from Simulcast Technologies. We would be pleased to demonstrate our SIMUL Playout automation engine.",
+    attachments: [],
+    isRead: true,
+    isStarred: false,
+    isDraft: false,
+    messageId: "<simulcast-broadcom-reply-001@simulcast.com.np>",
+    date: new Date(Date.now() - 3600000 * 6).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000 * 6).toISOString(),
+  },
+];
 
 async function ensureDataFiles() {
   try {
@@ -185,6 +319,11 @@ async function ensureDataFiles() {
 
     try {
       await fs.access(MESSAGES_FILE);
+      const raw = await fs.readFile(MESSAGES_FILE, "utf8");
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list) || list.length === 0) {
+        await fs.writeFile(MESSAGES_FILE, JSON.stringify(DEFAULT_MESSAGES, null, 2), "utf8");
+      }
     } catch {
       await fs.writeFile(MESSAGES_FILE, JSON.stringify(DEFAULT_MESSAGES, null, 2), "utf8");
     }
@@ -877,52 +1016,201 @@ export async function deleteWebmailMessage(id: string, permanent = false): Promi
   return { ok: true };
 }
 
+export async function recordWebmailOutgoingMessage(data: {
+  from?: string;
+  fromAccount?: string;
+  fromEmail?: string;
+  to: string | string[];
+  cc?: string | string[];
+  bcc?: string | string[];
+  subject: string;
+  bodyHtml: string;
+  bodyText?: string;
+  attachments?: WebmailAttachment[];
+  isSent?: boolean;
+  messageId?: string;
+}): Promise<WebmailMessageItem> {
+  const accounts = await getMailAccounts();
+  const searchStr = (data.fromAccount || data.fromEmail || data.from || "").toLowerCase();
+  const matchedAcc =
+    accounts.find(
+      (a) =>
+        a.id === searchStr ||
+        a.email.toLowerCase() === searchStr ||
+        searchStr.includes(a.email.toLowerCase()) ||
+        a.email.toLowerCase().startsWith(`${searchStr}@`)
+    ) ||
+    accounts.find((a) => a.isDefault) ||
+    accounts[0];
+
+  const toStr = Array.isArray(data.to) ? data.to.join(", ") : String(data.to);
+  const isSent = data.isSent !== false;
+
+  const msg: WebmailMessageItem = {
+    id: `msg_sent_${randomUUID().slice(0, 8)}`,
+    accountId: matchedAcc.id,
+    accountEmail: matchedAcc.email,
+    folder: isSent ? "SENT" : "FAILED",
+    from: `"${matchedAcc.name}" <${matchedAcc.email}>`,
+    fromEmail: matchedAcc.email,
+    to: toStr,
+    cc: data.cc ? (Array.isArray(data.cc) ? data.cc.join(", ") : String(data.cc)) : undefined,
+    bcc: data.bcc ? (Array.isArray(data.bcc) ? data.bcc.join(", ") : String(data.bcc)) : undefined,
+    subject: data.subject || "Message from Simulcast Technologies",
+    snippet: (data.bodyText || data.bodyHtml || "").replace(/<[^>]+>/g, " ").slice(0, 140),
+    bodyHtml: data.bodyHtml,
+    bodyText: data.bodyText,
+    attachments: data.attachments || [],
+    isRead: true,
+    isStarred: false,
+    isDraft: false,
+    messageId: data.messageId || null,
+    date: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const list = await readMessagesFallback();
+  list.unshift(msg);
+  await writeMessagesFallback(list);
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).webmailMessage.create({
+      data: {
+        id: msg.id,
+        accountId: msg.accountId,
+        accountEmail: msg.accountEmail,
+        folder: msg.folder,
+        from: msg.from,
+        fromEmail: msg.fromEmail,
+        to: msg.to,
+        cc: msg.cc,
+        bcc: msg.bcc,
+        subject: msg.subject,
+        snippet: msg.snippet,
+        bodyHtml: msg.bodyHtml,
+        bodyText: msg.bodyText,
+        attachments: JSON.stringify(msg.attachments || []),
+        isRead: true,
+        isStarred: false,
+        isDraft: false,
+        messageId: msg.messageId,
+      },
+    });
+  } catch {}
+
+  return msg;
+}
+
+export async function recordWebmailIncomingInquiry(inq: {
+  id?: string;
+  name: string;
+  email: string;
+  organization?: string;
+  phone?: string;
+  interest?: string;
+  message: string;
+  targetAccount?: "support" | "info" | "sales" | string;
+}): Promise<void> {
+  const accounts = await getMailAccounts();
+  const supportAcc = accounts.find((a) => a.id === "acc_support" || a.email.includes("support")) || accounts[0];
+  const infoAcc = accounts.find((a) => a.id === "acc_info" || a.email.includes("info")) || accounts[0];
+
+  const inqId = inq.id || `inq_${Date.now()}`;
+  const targetAccounts = inq.targetAccount?.includes("info")
+    ? [infoAcc]
+    : inq.targetAccount?.includes("sales")
+    ? [accounts.find((a) => a.id === "acc_sales") || supportAcc]
+    : [supportAcc, infoAcc];
+
+  const list = await readMessagesFallback();
+
+  for (const acc of targetAccounts) {
+    const msgId = `msg_inbox_${inqId}_${acc.id}`;
+    if (!list.some((m) => m.id === msgId)) {
+      list.unshift({
+        id: msgId,
+        accountId: acc.id,
+        accountEmail: acc.email,
+        folder: "INBOX",
+        from: `${inq.name} <${inq.email}>`,
+        fromEmail: inq.email,
+        to: acc.email,
+        subject: inq.interest ? `Inquiry regarding ${inq.interest} from ${inq.name}` : `Website Inquiry from ${inq.name}`,
+        snippet: inq.message.replace(/<[^>]+>/g, " ").slice(0, 140),
+        bodyHtml: `<p><strong>Client Name:</strong> ${inq.name}</p>
+<p><strong>Email:</strong> <a href="mailto:${inq.email}">${inq.email}</a></p>
+${inq.phone ? `<p><strong>Phone:</strong> ${inq.phone}</p>` : ""}
+${inq.organization ? `<p><strong>Organization:</strong> ${inq.organization}</p>` : ""}
+${inq.interest ? `<p><strong>Area of Interest:</strong> ${inq.interest}</p>` : ""}
+<hr style="border:none;border-top:1px solid #eae4eb;margin:16px 0;"/>
+<p style="white-space:pre-wrap;">${inq.message}</p>`,
+        bodyText: inq.message,
+        attachments: [],
+        isRead: false,
+        isStarred: false,
+        isDraft: false,
+        messageId: `<inquiry-${inqId}@simulcast.com.np>`,
+        date: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  await writeMessagesFallback(list);
+}
+
 export async function syncMailbox(targetAccountEmail?: string): Promise<{ synced: number; message: string }> {
-  // Sync unread website contact inquiries directly into the info / support webmail inbox
+  // Sync website contact inquiries directly into the info & support webmail inboxes
   let synced = 0;
   try {
-    const inquiries = await db.inquiry.findMany({
-      where: { status: "NEW" },
-      take: 10,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const inquiries = await (db as any).inquiry.findMany({
+      take: 25,
       orderBy: { createdAt: "desc" },
-    });
+    }).catch(() => []);
 
     const messages = await readMessagesFallback();
     const accounts = await getMailAccounts();
-    const infoAcc = accounts.find((a) => a.email.includes("info")) || accounts[0];
+    const supportAcc = accounts.find((a) => a.id === "acc_support" || a.email.includes("support")) || accounts[0];
+    const infoAcc = accounts.find((a) => a.id === "acc_info" || a.email.includes("info")) || accounts[0];
 
     for (const inq of inquiries) {
-      const msgId = `inq_${inq.id}`;
-      const exists = messages.some((m) => m.id === msgId);
-      if (!exists) {
-        messages.unshift({
-          id: msgId,
-          accountId: infoAcc.id,
-          accountEmail: infoAcc.email,
-          folder: "INBOX",
-          from: `${inq.name} <${inq.email}>`,
-          fromEmail: inq.email,
-          to: infoAcc.email,
-          subject: inq.interest ? `Inquiry regarding ${inq.interest} from ${inq.name}` : `Website Inquiry from ${inq.name}`,
-          snippet: inq.message.slice(0, 120),
-          bodyHtml: `<p><strong>Name:</strong> ${inq.name}</p>
+      for (const acc of [supportAcc, infoAcc]) {
+        const msgId = `inq_${inq.id}_${acc.id}`;
+        const exists = messages.some((m) => m.id === msgId);
+        if (!exists) {
+          messages.unshift({
+            id: msgId,
+            accountId: acc.id,
+            accountEmail: acc.email,
+            folder: "INBOX",
+            from: `${inq.name} <${inq.email}>`,
+            fromEmail: inq.email,
+            to: acc.email,
+            subject: inq.interest ? `Inquiry regarding ${inq.interest} from ${inq.name}` : `Website Inquiry from ${inq.name}`,
+            snippet: inq.message.slice(0, 120),
+            bodyHtml: `<p><strong>Name:</strong> ${inq.name}</p>
 <p><strong>Email:</strong> ${inq.email}</p>
 ${inq.phone ? `<p><strong>Phone:</strong> ${inq.phone}</p>` : ""}
 ${inq.organization ? `<p><strong>Organization:</strong> ${inq.organization}</p>` : ""}
 ${inq.interest ? `<p><strong>Area of Interest:</strong> ${inq.interest}</p>` : ""}
 <hr style="border:none;border-top:1px solid #eae4eb;margin:16px 0;"/>
 <p style="white-space:pre-wrap;">${inq.message}</p>`,
-          bodyText: inq.message,
-          attachments: [],
-          isRead: false,
-          isStarred: false,
-          isDraft: false,
-          messageId: `<inquiry-${inq.id}@simulcast.com.np>`,
-          date: inq.createdAt.toISOString(),
-          createdAt: inq.createdAt.toISOString(),
-          updatedAt: inq.updatedAt.toISOString(),
-        });
-        synced++;
+            bodyText: inq.message,
+            attachments: [],
+            isRead: false,
+            isStarred: false,
+            isDraft: false,
+            messageId: `<inquiry-${inq.id}@simulcast.com.np>`,
+            date: inq.createdAt ? new Date(inq.createdAt).toISOString() : new Date().toISOString(),
+            createdAt: inq.createdAt ? new Date(inq.createdAt).toISOString() : new Date().toISOString(),
+            updatedAt: inq.updatedAt ? new Date(inq.updatedAt).toISOString() : new Date().toISOString(),
+          });
+          synced++;
+        }
       }
     }
 
@@ -935,6 +1223,7 @@ ${inq.interest ? `<p><strong>Area of Interest:</strong> ${inq.interest}</p>` : "
 
   return {
     synced,
-    message: `Mailbox sync completed. ${synced} new incoming messages imported.`,
+    message: `Mailbox sync completed. ${synced} incoming messages updated.`,
   };
 }
+

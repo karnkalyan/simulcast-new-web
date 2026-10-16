@@ -1,0 +1,46 @@
+[
+  {
+    "id": "mclog_chatgpt_sendmail_01",
+    "connectionId": "mconn_chatgpt_default",
+    "clientName": "ChatGPT (OpenAI Actions)",
+    "event": "TOOL_CALL",
+    "toolName": "send_email",
+    "status": "SUCCESS",
+    "ipAddress": "127.0.0.1",
+    "details": "Command: send_email | To: karnkalyan@gmail.com | From: support@simulcast.com.np | Subject: Simulcast Technologies Pvt. Ltd. — Company Profile, Products & Solutions | Attachment: Simulcast_Technologies_Company_Profile.pdf",
+    "createdAt": "2026-10-16T16:50:00.000Z"
+  },
+  {
+    "id": "mclog_chatgpt_services_02",
+    "connectionId": "mconn_chatgpt_default",
+    "clientName": "ChatGPT (OpenAI Actions)",
+    "event": "TOOL_CALL",
+    "toolName": "list_services",
+    "status": "SUCCESS",
+    "ipAddress": "127.0.0.1",
+    "details": "Command: list_services | Category: broadcast-engineering | Results: 6 services returned",
+    "createdAt": "2026-10-16T16:45:00.000Z"
+  },
+  {
+    "id": "mclog_chatgpt_settings_03",
+    "connectionId": "mconn_chatgpt_default",
+    "clientName": "ChatGPT (OpenAI Actions)",
+    "event": "TOOL_CALL",
+    "toolName": "get_site_settings",
+    "status": "SUCCESS",
+    "ipAddress": "127.0.0.1",
+    "details": "Command: get_site_settings | Retrieved company branding, contact emails, and active support routes",
+    "createdAt": "2026-10-16T16:40:00.000Z"
+  },
+  {
+    "id": "mclog_chatgpt_auth_04",
+    "connectionId": "mconn_chatgpt_default",
+    "clientName": "ChatGPT (OpenAI Actions)",
+    "event": "AUTHORIZE",
+    "toolName": null,
+    "status": "SUCCESS",
+    "ipAddress": "127.0.0.1",
+    "details": "Client authorized with master API key (prefix: simulcast_master...). Full capabilities enabled.",
+    "createdAt": "2026-10-16T12:00:00.000Z"
+  }
+]

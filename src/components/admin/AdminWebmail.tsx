@@ -193,12 +193,25 @@ export default function AdminWebmail({
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        setMessages(data.messages || []);
+        const loadedMessages = data.messages || [];
+        setMessages(loadedMessages);
         if (data.counts) setCounts(data.counts);
 
         if (selectedMessage) {
-          const updated = (data.messages || []).find((m: WebmailMessage) => m.id === selectedMessage.id);
+          const updated = loadedMessages.find((m: WebmailMessage) => m.id === selectedMessage.id);
           if (updated) setSelectedMessage(updated);
+        }
+
+        // If inbox is empty on initial load, auto-sync in background so user sees incoming inquiries immediately
+        if (loadedMessages.length === 0 && activeFolder === "INBOX" && !searchQuery) {
+          fetch("/api/admin/webmail/sync", { method: "POST" })
+            .then((r) => r.json())
+            .then((syncData) => {
+              if (syncData.synced > 0) {
+                loadMessages();
+              }
+            })
+            .catch(() => {});
         }
       }
     } catch {
@@ -543,46 +556,46 @@ export default function AdminWebmail({
         <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={() => setSubView("webmail")}
-            className={`btn ${subView === "webmail" ? "btn-pink" : "btn-outline"}`}
-            style={{ display: "flex", alignItems: "center", gap: 8 }}
+            className={`btn btn-sm ${subView === "webmail" ? "btn-pink" : "btn-outline"}`}
+            style={{ display: "flex", alignItems: "center", gap: 6 }}
           >
-            <Inbox size={16} /> Webmail Client
+            <Inbox size={15} /> Webmail Client
           </button>
           <button
             onClick={() => setSubView("accounts")}
-            className={`btn ${subView === "accounts" ? "btn-pink" : "btn-outline"}`}
-            style={{ display: "flex", alignItems: "center", gap: 8 }}
+            className={`btn btn-sm ${subView === "accounts" ? "btn-pink" : "btn-outline"}`}
+            style={{ display: "flex", alignItems: "center", gap: 6 }}
           >
-            <Server size={16} /> Configured Mailboxes ({accounts.length})
+            <Server size={15} /> Configured Mailboxes ({accounts.length})
           </button>
         </div>
 
         {subView === "webmail" ? (
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button
               onClick={handleSyncMailbox}
-              className="btn btn-outline"
+              className="btn btn-sm btn-outline"
               disabled={syncing}
-              style={{ display: "flex", alignItems: "center", gap: 8 }}
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
             >
-              <RefreshCw size={15} className={syncing ? "spin-icon" : ""} />
+              <RefreshCw size={14} className={syncing ? "spin-icon" : ""} />
               {syncing ? "Syncing..." : "Sync Mailbox"}
             </button>
             <button
               onClick={() => handleOpenCompose()}
-              className="btn btn-pink"
-              style={{ display: "flex", alignItems: "center", gap: 8 }}
+              className="btn btn-sm btn-pink"
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
             >
-              <FileEdit size={16} /> Compose Email
+              <FileEdit size={15} /> Compose Email
             </button>
           </div>
         ) : (
           <button
             onClick={handleOpenAddAccount}
-            className="btn btn-pink"
-            style={{ display: "flex", alignItems: "center", gap: 8 }}
+            className="btn btn-sm btn-pink"
+            style={{ display: "flex", alignItems: "center", gap: 6 }}
           >
-            <Plus size={16} /> Add Mail Account
+            <Plus size={15} /> Add Mail Account
           </button>
         )}
       </div>
@@ -1354,20 +1367,20 @@ export default function AdminWebmail({
             <div className="cms-modal-foot" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", gap: 8 }}>
                 <input type="file" multiple ref={fileInputRef} style={{ display: "none" }} onChange={handleFileUpload} />
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="btn btn-outline" style={{ fontSize: 13 }}>
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="btn btn-sm btn-outline">
                   <Paperclip size={14} /> Attach Files
                 </button>
-                <button type="button" onClick={handleSaveDraft} className="btn btn-outline" disabled={sending} style={{ fontSize: 13 }}>
+                <button type="button" onClick={handleSaveDraft} className="btn btn-sm btn-outline" disabled={sending}>
                   Save Draft
                 </button>
               </div>
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" onClick={() => setShowCompose(false)} className="btn btn-outline">
+                <button type="button" onClick={() => setShowCompose(false)} className="btn btn-sm btn-outline">
                   Cancel
                 </button>
-                <button type="button" onClick={handleSendWebmail} className="btn btn-pink" disabled={sending}>
-                  <Send size={15} /> {sending ? "Sending..." : "Send Email"}
+                <button type="button" onClick={handleSendWebmail} className="btn btn-sm btn-pink" disabled={sending}>
+                  <Send size={14} /> {sending ? "Sending..." : "Send Email"}
                 </button>
               </div>
             </div>
@@ -1535,17 +1548,17 @@ export default function AdminWebmail({
               <button
                 type="button"
                 onClick={handleTestAccountConnection}
-                className="btn btn-outline"
+                className="btn btn-sm btn-outline"
                 disabled={testingConnection}
               >
                 {testingConnection ? "Testing..." : "Test Connection"}
               </button>
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" onClick={() => setShowAccountModal(false)} className="btn btn-outline">
+                <button type="button" onClick={() => setShowAccountModal(false)} className="btn btn-sm btn-outline">
                   Cancel
                 </button>
-                <button type="button" onClick={handleSaveAccount} className="btn btn-pink">
+                <button type="button" onClick={handleSaveAccount} className="btn btn-sm btn-pink">
                   Save Account
                 </button>
               </div>

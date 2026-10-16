@@ -179,8 +179,10 @@ export async function recordMcpActivity(input: {
   ipAddress?: string;
   userAgent?: string;
   blocked?: boolean;
+  status?: "SUCCESS" | "FAILED" | "REVOKED";
+  details?: string;
 }): Promise<{ authorized: boolean; connection?: McpClientConnection }> {
-  const tokenPrefix = input.tokenOrIdentity.slice(0, 18);
+  const tokenPrefix = (input.tokenOrIdentity || "").slice(0, 18);
   const now = new Date();
 
   let matchedConnection: McpClientConnection | null = null;
@@ -275,22 +277,68 @@ export async function recordMcpActivity(input: {
     }
   }
 
-  if (matchedConnection) {
-    if (input.toolName) {
-      await logMcpConnectionEvent({
-        connectionId: matchedConnection.id,
-        clientName: matchedConnection.clientName,
-        event: "TOOL_CALL",
-        toolName: input.toolName,
-        status: "SUCCESS",
-        ipAddress: input.ipAddress,
-        details: `Invoked MCP tool '${input.toolName}'`,
-      });
+  // If no connection matched, link to or initialize the ChatGPT/AI Agent connection
+  if (!matchedConnection) {
+    const fallbackClientName =
+      input.tokenOrIdentity &&
+      !input.tokenOrIdentity.startsWith("ey") &&
+      !input.tokenOrIdentity.startsWith("Bearer")
+        ? input.tokenOrIdentity
+        : "ChatGPT (OpenAI Actions)";
+
+    const list = await readFallback<McpClientConnection>(CONNECTIONS_FILE);
+    let item = list.find(
+      (c) =>
+        c.clientName.toLowerCase() === fallbackClientName.toLowerCase() ||
+        c.id === "mconn_chatgpt_default"
+    );
+
+    if (!item) {
+      item = {
+        id: `mconn_${randomUUID().slice(0, 8)}`,
+        clientName: fallbackClientName,
+        clientId: fallbackClientName.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+        token: `mcp_client_${randomUUID().slice(0, 16)}`,
+        tokenPrefix: "mcp_client...",
+        role: "AI_AGENT",
+        scopes: "all",
+        status: "CONNECTED",
+        ipAddress: input.ipAddress || "127.0.0.1",
+        userAgent: input.userAgent || "OpenAI-Actions/1.0",
+        requestCount: 1,
+        lastTool: input.toolName || null,
+        expiresAt: null,
+        lastActiveAt: now.toISOString(),
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+      list.unshift(item);
+    } else {
+      item.requestCount = (item.requestCount || 0) + 1;
+      if (input.toolName) item.lastTool = input.toolName;
+      item.lastActiveAt = now.toISOString();
+      if (input.ipAddress) item.ipAddress = input.ipAddress;
+      if (input.userAgent) item.userAgent = input.userAgent;
+      item.updatedAt = now.toISOString();
     }
-    return { authorized: true, connection: matchedConnection };
+    await writeFallback(CONNECTIONS_FILE, list);
+    matchedConnection = item;
   }
 
-  return { authorized: true };
+  if (input.toolName) {
+    const finalStatus = input.blocked ? "REVOKED" : input.status || "SUCCESS";
+    await logMcpConnectionEvent({
+      connectionId: matchedConnection?.id || null,
+      clientName: matchedConnection?.clientName || input.tokenOrIdentity || "ChatGPT (OpenAI Actions)",
+      event: "TOOL_CALL",
+      toolName: input.toolName,
+      status: finalStatus,
+      ipAddress: input.ipAddress,
+      details: input.details || `Invoked MCP tool '${input.toolName}'`,
+    });
+  }
+
+  return { authorized: true, connection: matchedConnection || undefined };
 }
 
 export async function getMcpConnections(): Promise<{

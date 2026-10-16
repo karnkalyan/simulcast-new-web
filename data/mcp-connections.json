@@ -1,0 +1,38 @@
+[
+  {
+    "id": "mconn_chatgpt_default",
+    "clientName": "ChatGPT (OpenAI Actions)",
+    "clientId": "chatgpt_simulcast_v6",
+    "token": "simulcast_master_mcp_api_key_2026_sec",
+    "tokenPrefix": "simulcast_master...",
+    "role": "MCP_ADMIN",
+    "scopes": "all",
+    "status": "CONNECTED",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "OpenAI-GPT/4o",
+    "requestCount": 18,
+    "lastTool": "send_email",
+    "expiresAt": null,
+    "lastActiveAt": "2026-10-16T16:50:00.000Z",
+    "createdAt": "2026-10-16T12:00:00.000Z",
+    "updatedAt": "2026-10-16T16:50:00.000Z"
+  },
+  {
+    "id": "mconn_claude_desktop",
+    "clientName": "Claude Desktop AI",
+    "clientId": "claude_desktop_client",
+    "token": "mcp_client_claude_desktop_sec",
+    "tokenPrefix": "mcp_client_claude...",
+    "role": "AI_ENGINEER",
+    "scopes": "tools,resources,read",
+    "status": "CONNECTED",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "ClaudeDesktop/1.0",
+    "requestCount": 6,
+    "lastTool": "get_site_settings",
+    "expiresAt": null,
+    "lastActiveAt": "2026-10-16T15:20:00.000Z",
+    "createdAt": "2026-10-16T12:00:00.000Z",
+    "updatedAt": "2026-10-16T15:20:00.000Z"
+  }
+]

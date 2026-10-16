@@ -51,6 +51,11 @@ export async function GET(request: Request) {
                 schema: {
                   type: "object",
                   properties: {
+                    fromAccount: {
+                      type: "string",
+                      description: "Sender mailbox to dispatch from: 'support', 'info', 'sales', 'kalyan', or any configured email (e.g. info@simulcast.com.np). Defaults to 'support@simulcast.com.np'.",
+                      enum: ["support", "info", "sales", "kalyan", "support@simulcast.com.np", "info@simulcast.com.np", "sales@simulcast.com.np", "kalyan@simulcast.com.np"],
+                    },
                     to: {
                       type: "string",
                       description: "Recipient email address (e.g. karnkalyan@gmail.com)",
@@ -58,6 +63,10 @@ export async function GET(request: Request) {
                     subject: {
                       type: "string",
                       description: "Subject of the email (supports dynamic {{variables}})",
+                    },
+                    message: {
+                      type: "string",
+                      description: "Plain text, conversational request, or Markdown message body (alternative to html)",
                     },
                     html: {
                       type: "string",
@@ -88,16 +97,24 @@ export async function GET(request: Request) {
                       type: "boolean",
                       description: "Set true to place into background queue, or false for immediate dispatch",
                     },
+                    attachCompanyProfile: {
+                      type: "boolean",
+                      description: "Automatically attach the official Simulcast Corporate Profile PDF to this email",
+                    },
+                    attachment: {
+                      type: "string",
+                      description: "Quick attachment shortcut: 'company_profile', 'brochure', local path (e.g. /docs/...), or remote document URL",
+                    },
                     attachments: {
                       type: "array",
-                      description: "Optional array of file attachments with dynamic local paths or remote URLs",
+                      description: "Optional array of file attachments with dynamic local paths, Base64 content, or remote URLs",
                       items: {
                         type: "object",
                         properties: {
-                          filename: { type: "string", description: "Name of the file" },
+                          filename: { type: "string", description: "Name of the file (e.g. Proposal.pdf)" },
                           url: { type: "string", description: "Remote URL of the file to attach (automatically downloaded)" },
-                          path: { type: "string", description: "Path to uploaded file asset (e.g. /uploads/...)" },
-                          content: { type: "string", description: "Base64 encoded file content or text" },
+                          path: { type: "string", description: "Path to uploaded file asset (e.g. /docs/... or /uploads/...)" },
+                          content: { type: "string", description: "Base64 encoded file content or text string" },
                           contentType: { type: "string", description: "MIME type (e.g. application/pdf, image/png)" },
                         },
                         required: ["filename"],
@@ -211,6 +228,7 @@ export async function GET(request: Request) {
       {
         BearerAuth: [],
       },
+      {},
     ],
   };
 

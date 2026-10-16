@@ -1,0 +1,98 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 1380 >>
+stream
+BT
+/F1 18 Tf
+50 780 Td
+(SIMULCAST TECHNOLOGIES - SOLUTIONS BROCHURE) Tj
+ET
+BT
+/F1 10 Tf
+50 762 Td
+(Official Enterprise Documentation - Simulcast Technologies Pvt. Ltd.) Tj
+ET
+0.17 0.05 0.23 RG
+2 w
+50 750 m 545 750 l S
+BT
+/F1 13 Tf
+50 718 Td
+(1. Broadcast Playout & Headend Infrastructure) Tj
+ET
+BT
+/F1 10 Tf
+60 700 Td
+(Complete end-to-end automation for terrestrial and satellite television broadcast operations.) Tj
+ET
+BT
+/F1 10 Tf
+60 685 Td
+(Features automated scheduling, multi-layer graphics \(CG\), SCTE-35 ad insertion, and SDI/NDI/SMPTE 2110 IP video.) Tj
+ET
+BT
+/F1 13 Tf
+50 660 Td
+(2. OTT, IPTV & Multi-Screen Distribution) Tj
+ET
+BT
+/F1 10 Tf
+60 642 Td
+(Low-latency CMAF/HLS live streaming engine with integrated DRM \(Widevine, FairPlay\).) Tj
+ET
+BT
+/F1 10 Tf
+60 627 Td
+(Dynamic catch-up TV, cloud time-shift recording, and scalable edge CDN delivery nodes.) Tj
+ET
+BT
+/F1 13 Tf
+50 602 Td
+(3. Enterprise IT, Fiber & AI Automation) Tj
+ET
+BT
+/F1 10 Tf
+60 584 Td
+(Next-generation enterprise networking, automated NOC telemetry monitoring, and autonomous AI agents.) Tj
+ET
+BT
+/F1 10 Tf
+60 569 Td
+(Contact our engineering team at support@simulcast.com.np for tailored technical proposals.) Tj
+ET
+0.7 0.7 0.7 RG
+1 w
+50 50 m 545 50 l S
+BT
+/F1 8 Tf
+50 38 Td
+(Simulcast Technologies Pvt. Ltd. | Lalitpur & Kathmandu, Nepal | support@simulcast.com.np | info@simulcast.com.np) Tj
+ET
+
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1743
+%%EOF

@@ -24,6 +24,7 @@ import {
   XCircle,
   AlertCircle,
   Code2,
+  X,
 } from 'lucide-react';
 
 interface ConnectionItem {
@@ -101,6 +102,10 @@ export default function AdminMcp() {
   const [showToolModal, setShowToolModal] = useState(false);
   const [toolError, setToolError] = useState('');
   const [editingToolId, setEditingToolId] = useState<string | null>(null);
+
+  // Tools Catalog State
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [catalogCategory, setCatalogCategory] = useState('ALL');
   const [toolForm, setToolForm] = useState({
     name: '',
     title: '',
@@ -1006,74 +1011,458 @@ export default function AdminMcp() {
       )}
 
       {/* TAB 4: BUILT-IN TOOLS CATALOG */}
-      {activeTab === 'tools' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: 16, color: '#2b0d3a' }}>MCP Tools Catalog</h3>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#7b6f84' }}>
-              Built-in tools available to authenticated AI agents, including Email Sending, Bulk Queue, and Image Uploads.
-            </p>
-          </div>
+      {activeTab === 'tools' && (() => {
+        const BUILTIN_TOOLS = [
+          // Email & Multi-Mailbox
+          {
+            name: 'send_email',
+            category: 'Email & Multi-Mailbox',
+            scope: 'Public / Authorized',
+            desc: 'Send transactional, customer, or queued email from any configured mailbox (support, info, sales, kalyan) with attachment support and delivery audit.',
+            params: 'fromAccount (support/info/sales/kalyan), to, subject, message/html, templateType (COMPANY_PROFILE), queue (bool), attachments',
+          },
+          {
+            name: 'send_webmail',
+            category: 'Email & Multi-Mailbox',
+            scope: 'Public / Authorized',
+            desc: 'Direct dispatch using webmail account credentials and automatically saving to Sent folder.',
+            params: 'fromAccount, to, cc, bcc, subject, body, attachments',
+          },
+          {
+            name: 'get_webmail_inbox',
+            category: 'Email & Multi-Mailbox',
+            scope: 'Public / Authorized',
+            desc: 'Fetch conversations, inquiries, and messages from webmail accounts with folder & read status filters.',
+            params: 'accountEmail, folder (INBOX/SENT/DRAFTS), filter (ALL/UNREAD), search, limit',
+          },
+          {
+            name: 'get_webmail_accounts',
+            category: 'Email & Multi-Mailbox',
+            scope: 'Public / Authorized',
+            desc: 'List all configured email mailboxes (support@simulcast.com.np, info@simulcast.com.np, sales, kalyan).',
+            params: 'none',
+          },
+          {
+            name: 'sync_mailbox',
+            category: 'Email & Multi-Mailbox',
+            scope: 'Public / Authorized',
+            desc: 'Trigger incoming mailbox synchronization to import contact inquiries and chat alerts into webmail inboxes.',
+            params: 'accountEmail (optional)',
+          },
+          {
+            name: 'send_bulk_emails',
+            category: 'Email & Multi-Mailbox',
+            scope: 'Authorized',
+            desc: 'Queue 100+ bulk personalized emails with templating {{name}} and asynchronous delivery logging.',
+            params: 'recipients [{ email, name }], subject, html, batchName, attachments',
+          },
+          {
+            name: 'get_email_queue_status',
+            category: 'Email & Multi-Mailbox',
+            scope: 'Authorized',
+            desc: 'Inspect real-time pending, processing, sent, and failed queue counts and delivery health.',
+            params: 'status (optional filter), limit',
+          },
+          {
+            name: 'process_email_queue',
+            category: 'Email & Multi-Mailbox',
+            scope: 'Authorized',
+            desc: 'Process the next batch of queued emails and record delivery logs.',
+            params: 'limit (number)',
+          },
+          {
+            name: 'clear_email_queue',
+            category: 'Email & Multi-Mailbox',
+            scope: 'Authorized',
+            desc: 'Purge completed or failed emails from queue to free storage.',
+            params: 'status, olderThanHours',
+          },
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-            {[
-              {
-                name: 'upload_media_image',
-                category: 'Media & Uploads',
-                desc: 'Upload an image into Simulcast public uploads from external URL or Base64 payload.',
-                params: 'url (string) OR data (base64 string), filename, alt',
-              },
-              {
-                name: 'create_blog_post',
-                category: 'Blog & Insights',
-                desc: 'Publish or draft blog posts/insights with direct imageUrl or imageBase64 cover upload.',
-                params: 'title, excerpt, body, imageUrl, imageBase64, imageFilename, published',
-              },
-              {
-                name: 'send_email',
-                category: 'Email Dispatch',
-                desc: 'Send transactional or queued email from Simulcast with attachments support.',
-                params: 'to, subject, html, attachments [{ filename, path/content }], queue (bool)',
-              },
-              {
-                name: 'send_bulk_emails',
-                category: 'Email Queue System',
-                desc: 'Queue 100+ bulk personalized emails with templating {{name}} and delivery logging.',
-                params: 'recipients [{ to, name }], subject, html, batchId, attachments',
-              },
-              {
-                name: 'get_email_queue_status',
-                category: 'Queue Management',
-                desc: 'Inspect real-time pending, processing, sent, and failed queue counts.',
-                params: 'status (optional filter), limit',
-              },
-              {
-                name: 'process_email_queue',
-                category: 'Queue Worker',
-                desc: 'Process the next batch of queued emails and record delivery logs.',
-                params: 'limit (number)',
-              },
-              {
-                name: 'get_audit_logs',
-                category: 'Audit Trail',
-                desc: 'Retrieve system and MCP audit trail records.',
-                params: 'category, search, limit',
-              },
-            ].map((t) => (
-              <div key={t.name} style={{ background: '#ffffff', border: '1px solid #eae4eb', borderRadius: 8, padding: 18 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: '#fdf2f8', color: '#db2777' }}>
-                  {t.category}
-                </span>
-                <h4 style={{ margin: '8px 0 4px', fontSize: 14, color: '#2b0d3a' }}>{t.name}</h4>
-                <p style={{ margin: 0, fontSize: 12, color: '#6f6277', lineHeight: 1.5 }}>{t.desc}</p>
-                <div style={{ marginTop: 10, fontSize: 11, color: '#9d8f9e' }}>
-                  <strong>Parameters:</strong> <code>{t.params}</code>
+          // Inquiries & CRM
+          {
+            name: 'submit_inquiry',
+            category: 'Inquiries & CRM',
+            scope: 'Public',
+            desc: 'Register a client inquiry in CRM and automatically dispatch official company profile & product catalog email.',
+            params: 'name, email, organization, phone, interest, message',
+          },
+          {
+            name: 'list_inquiries',
+            category: 'Inquiries & CRM',
+            scope: 'Authorized',
+            desc: 'Retrieve incoming customer leads and technical consultation requests.',
+            params: 'status (NEW/IN_PROGRESS/RESPONDED/CLOSED), limit',
+          },
+          {
+            name: 'update_inquiry_status',
+            category: 'Inquiries & CRM',
+            scope: 'Authorized',
+            desc: 'Update the pipeline status and internal notes for a lead.',
+            params: 'id, status, internalNotes',
+          },
+
+          // Live Chat & Support
+          {
+            name: 'list_chat_sessions',
+            category: 'Live Chat & Support',
+            scope: 'Authorized',
+            desc: 'List active visitor chat sessions and human escalation requests.',
+            params: 'status (ACTIVE/ESCALATED_HUMAN/CLOSED), limit',
+          },
+          {
+            name: 'get_chat_transcript',
+            category: 'Live Chat & Support',
+            scope: 'Authorized',
+            desc: 'Read full chronological transcript of a live chat session.',
+            params: 'sessionId',
+          },
+          {
+            name: 'send_chat_message',
+            category: 'Live Chat & Support',
+            scope: 'Authorized',
+            desc: 'Post an AI or support engineer response message to an active live chat session.',
+            params: 'sessionId, content, senderName',
+          },
+          {
+            name: 'update_chat_session',
+            category: 'Live Chat & Support',
+            scope: 'Authorized',
+            desc: 'Update visitor information, session status, or summary notes.',
+            params: 'sessionId, status, visitorName, visitorEmail, summary',
+          },
+          {
+            name: 'close_chat_session',
+            category: 'Live Chat & Support',
+            scope: 'Authorized',
+            desc: 'Close chat session and optionally email full formatted transcript to support NOC.',
+            params: 'sessionId, sendTranscriptEmail (bool), summary',
+          },
+          {
+            name: 'request_human_agent',
+            category: 'Live Chat & Support',
+            scope: 'Public',
+            desc: 'Escalate visitor to live human broadcast/software engineers and trigger priority email alert to support NOC.',
+            params: 'sessionId, visitorName, visitorEmail, message',
+          },
+
+          // Services Portfolio
+          {
+            name: 'list_services',
+            category: 'Services',
+            scope: 'Public',
+            desc: 'List all broadcast engineering, custom software, AI automation, and IT infrastructure services.',
+            params: 'category, includeDrafts',
+          },
+          {
+            name: 'get_service',
+            category: 'Services',
+            scope: 'Public',
+            desc: 'Retrieve complete technical scope, architecture, and specifications for a service.',
+            params: 'slug, id',
+          },
+          {
+            name: 'create_service',
+            category: 'Services',
+            scope: 'Authorized',
+            desc: 'Publish a new engineering, broadcast, software, or AI service offering.',
+            params: 'title, slug, summary, body, eyebrow, icon, imageUrl',
+          },
+          {
+            name: 'update_service',
+            category: 'Services',
+            scope: 'Authorized',
+            desc: 'Update service description, architecture body, or publish status.',
+            params: 'slug, title, summary, body, published',
+          },
+          {
+            name: 'delete_service',
+            category: 'Services',
+            scope: 'Authorized',
+            desc: 'Permanently remove a service from the website.',
+            params: 'slug, id',
+          },
+
+          // Projects Portfolio
+          {
+            name: 'list_projects',
+            category: 'Projects',
+            scope: 'Public',
+            desc: 'Retrieve portfolio of broadcast, optical fiber, and software deployments across Nepal.',
+            params: 'category, featuredOnly, limit',
+          },
+          {
+            name: 'get_project',
+            category: 'Projects',
+            scope: 'Public',
+            desc: 'Get full engineering case study and deployment metrics.',
+            params: 'slug, id',
+          },
+          {
+            name: 'create_project',
+            category: 'Projects',
+            scope: 'Authorized',
+            desc: 'Publish a new engineering project showcase.',
+            params: 'title, slug, category, summary, body, location, imageUrl',
+          },
+          {
+            name: 'update_project',
+            category: 'Projects',
+            scope: 'Authorized',
+            desc: 'Edit project case study content, featured badge, or image.',
+            params: 'slug, title, summary, body, featured',
+          },
+          {
+            name: 'delete_project',
+            category: 'Projects',
+            scope: 'Authorized',
+            desc: 'Remove an engineering project from portfolio.',
+            params: 'slug, id',
+          },
+
+          // Insights & Blog
+          {
+            name: 'list_blog_posts',
+            category: 'Insights',
+            scope: 'Public',
+            desc: 'List published technology articles, broadcast whitepapers, and software guides.',
+            params: 'category, publishedOnly, limit',
+          },
+          {
+            name: 'get_blog_post',
+            category: 'Insights',
+            scope: 'Public',
+            desc: 'Read full technical article or editorial guide.',
+            params: 'slug, id',
+          },
+          {
+            name: 'create_blog_post',
+            category: 'Insights',
+            scope: 'Authorized',
+            desc: 'Publish or draft blog posts/insights with direct imageUrl or imageBase64 cover upload.',
+            params: 'title, excerpt, body, imageUrl, imageBase64, imageFilename, published',
+          },
+          {
+            name: 'update_blog_post',
+            category: 'Insights',
+            scope: 'Authorized',
+            desc: 'Update post content, category, cover, or publish state.',
+            params: 'slug, title, excerpt, body, published',
+          },
+          {
+            name: 'delete_blog_post',
+            category: 'Insights',
+            scope: 'Authorized',
+            desc: 'Delete an article from insights.',
+            params: 'slug, id',
+          },
+
+          // Media & Visuals
+          {
+            name: 'upload_media_image',
+            category: 'Media & Assets',
+            scope: 'Authorized',
+            desc: 'Upload an image into Simulcast public uploads from external URL or Base64 payload.',
+            params: 'url (string) OR data (base64 string), filename, alt',
+          },
+          {
+            name: 'list_media_assets',
+            category: 'Media & Assets',
+            scope: 'Public',
+            desc: 'List uploaded media assets and bundled high-resolution broadcast visuals.',
+            params: 'limit (number)',
+          },
+
+          // Brand, System & AI
+          {
+            name: 'get_site_settings',
+            category: 'Brand & System',
+            scope: 'Public',
+            desc: 'Get official company details, slogans, contact information, theme colors, and brand styling.',
+            params: 'none',
+          },
+          {
+            name: 'update_site_settings',
+            category: 'Brand & System',
+            scope: 'Authorized',
+            desc: 'Update company details, theme colors, headlines, slogans, contact emails, and live chat configuration.',
+            params: 'companyName, headline, slogan, supportEmail, primaryColor, enableChat',
+          },
+          {
+            name: 'ask_simulcast_ai',
+            category: 'Brand & System',
+            scope: 'Public',
+            desc: 'Query official Simulcast knowledge base powered by Gemini AI regarding RF, IPTV, fiber, or software.',
+            params: 'query, context',
+          },
+          {
+            name: 'get_audit_logs',
+            category: 'Brand & System',
+            scope: 'Authorized',
+            desc: 'Retrieve system, security, and MCP tool execution audit trail records.',
+            params: 'category, search, limit',
+          },
+          // Social Media Publishing
+          {
+            name: 'publish_social_post',
+            category: 'Social Media',
+            scope: 'Public / Authorized',
+            desc: 'Publish announcements, status updates, or technical milestones across connected LinkedIn, Facebook, and Instagram pages.',
+            params: 'content (string), platforms (array: LINKEDIN, FACEBOOK, INSTAGRAM), mediaUrl (optional image)',
+          },
+          {
+            name: 'get_social_accounts',
+            category: 'Social Media',
+            scope: 'Public',
+            desc: 'Inspect connection status, configured pages, and follower counts for official LinkedIn, Facebook, and Instagram profiles.',
+            params: 'none',
+          },
+        ];
+
+        const categories = [
+          { id: 'ALL', label: `All Tools (${BUILTIN_TOOLS.length})` },
+          { id: 'Email & Multi-Mailbox', label: 'Email & Webmail (9)' },
+          { id: 'Social Media', label: 'Social Media (2)' },
+          { id: 'Inquiries & CRM', label: 'Inquiries & CRM (3)' },
+          { id: 'Live Chat & Support', label: 'Live Chat (6)' },
+          { id: 'Services', label: 'Services (5)' },
+          { id: 'Projects', label: 'Projects (5)' },
+          { id: 'Insights', label: 'Insights (5)' },
+          { id: 'Media & Assets', label: 'Media (2)' },
+          { id: 'Brand & System', label: 'Brand & System (4)' },
+        ];
+
+        const filteredTools = BUILTIN_TOOLS.filter((t) => {
+          const matchCat = catalogCategory === 'ALL' || t.category === catalogCategory;
+          const q = catalogSearch.toLowerCase().trim();
+          const matchSearch =
+            !q ||
+            t.name.toLowerCase().includes(q) ||
+            t.desc.toLowerCase().includes(q) ||
+            t.params.toLowerCase().includes(q) ||
+            t.category.toLowerCase().includes(q);
+          return matchCat && matchSearch;
+        });
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Header with Tool Count */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <h3 style={{ margin: 0, fontSize: 18, color: '#2b0d3a' }}>MCP Tools Catalog</h3>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 12, background: '#2b0d3a', color: '#ffffff' }}>
+                    {BUILTIN_TOOLS.length} Built-in Active Tools
+                  </span>
                 </div>
+                <p style={{ margin: '6px 0 0', fontSize: 13, color: '#7b6f84' }}>
+                  Complete production tools available to ChatGPT, Claude, and Model Context Protocol clients. Includes multi-mailbox sending from <code>support</code>, <code>info</code>, <code>sales</code>, or <code>kalyan</code>.
+                </p>
               </div>
-            ))}
+
+              {/* Search Box */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#ffffff', border: '1px solid #dcd3e0', padding: '6px 12px', borderRadius: 6, minWidth: 280 }}>
+                <Search size={15} color="#9d8f9e" />
+                <input
+                  type="text"
+                  placeholder="Search tools, parameters, or actions..."
+                  value={catalogSearch}
+                  onChange={(e) => setCatalogSearch(e.target.value)}
+                  style={{ border: 'none', outline: 'none', width: '100%', fontSize: 12 }}
+                />
+                {catalogSearch && (
+                  <button onClick={() => setCatalogSearch('')} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#9d8f9e', padding: 0 }}>
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Category Filter Pills */}
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setCatalogCategory(c.id)}
+                  className="btn btn-sm"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    borderRadius: 20,
+                    border: '1px solid',
+                    borderColor: catalogCategory === c.id ? '#e11d72' : '#eae4eb',
+                    background: catalogCategory === c.id ? '#e11d72' : '#ffffff',
+                    color: catalogCategory === c.id ? '#ffffff' : '#574b60',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tool Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 16 }}>
+              {filteredTools.map((t) => (
+                <div
+                  key={t.name}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #eae4eb',
+                    borderRadius: 8,
+                    padding: 18,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 2px 6px rgba(43, 13, 58, 0.02)',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: '#fdf2f8', color: '#db2777' }}>
+                        {t.category}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          background: t.scope.includes('Public') ? '#f0fdf4' : '#faf5ff',
+                          color: t.scope.includes('Public') ? '#16a34a' : '#7c3aed',
+                        }}
+                      >
+                        {t.scope}
+                      </span>
+                    </div>
+
+                    <h4 style={{ margin: '4px 0 6px', fontSize: 15, color: '#2b0d3a', fontFamily: 'monospace' }}>
+                      {t.name}
+                    </h4>
+                    <p style={{ margin: 0, fontSize: 12, color: '#5a4f63', lineHeight: 1.5 }}>
+                      {t.desc}
+                    </p>
+                  </div>
+
+                  <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid #f3eef4', fontSize: 11, color: '#8b7d91' }}>
+                    <div style={{ fontWeight: 700, color: '#2b0d3a', marginBottom: 2 }}>Parameters:</div>
+                    <code style={{ fontSize: 10, background: '#f8f6f9', padding: '3px 6px', borderRadius: 4, display: 'block', wordBreak: 'break-word', color: '#3f3248' }}>
+                      {t.params}
+                    </code>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filteredTools.length === 0 && (
+              <div style={{ background: '#ffffff', border: '1px solid #eae4eb', borderRadius: 8, padding: 32, textAlign: 'center', color: '#8b7d91' }}>
+                No MCP tools match your query &ldquo;{catalogSearch}&rdquo;.
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* TAB 5: CHATGPT INTEGRATION */}
       {activeTab === 'chatgpt' && (

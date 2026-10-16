@@ -87,6 +87,8 @@ export function formatSimulcastEmail(content: string, title?: string): string {
 }
 
 export async function sendEmail({
+  from,
+  fromAccount,
   to,
   cc,
   bcc,
@@ -94,8 +96,12 @@ export async function sendEmail({
   html,
   text,
   attachments,
+  attachment,
+  attachCompanyProfile,
   variables,
 }: {
+  from?: string;
+  fromAccount?: string;
   to: string | string[];
   cc?: string | string[];
   bcc?: string | string[];
@@ -103,41 +109,123 @@ export async function sendEmail({
   html: string;
   text?: string;
   attachments?: EmailAttachment[];
+  attachment?: string | EmailAttachment;
+  attachCompanyProfile?: boolean;
   variables?: Record<string, string>;
 }): Promise<{ ok: boolean; messageId?: string; error?: string }> {
+  const chosenAccount = (fromAccount || from || "").toLowerCase().trim();
+  let senderName = "Simulcast Support NOC";
+  let senderEmail = emailUser;
+  let finalFrom = emailFrom;
+
+  if (chosenAccount.includes("info")) {
+    senderName = "Simulcast Official Info";
+    senderEmail = "info@simulcast.com.np";
+    finalFrom = `"${senderName}" <${senderEmail}>`;
+  } else if (chosenAccount.includes("sales")) {
+    senderName = "Sales & Enterprise Solutions";
+    senderEmail = "sales@simulcast.com.np";
+    finalFrom = `"${senderName}" <${senderEmail}>`;
+  } else if (chosenAccount.includes("kalyan")) {
+    senderName = "Kalyan Karn (Lead Engineering)";
+    senderEmail = "kalyan@simulcast.com.np";
+    finalFrom = `"${senderName}" <${senderEmail}>`;
+  } else if (chosenAccount && chosenAccount.includes("@")) {
+    senderEmail = chosenAccount;
+    senderName = chosenAccount.split("@")[0].toUpperCase();
+    finalFrom = `"${senderName}" <${senderEmail}>`;
+  }
+
+  const recipientList = Array.isArray(to) ? to.join(", ") : to;
+  const ccList = cc ? (Array.isArray(cc) ? cc.join(", ") : cc) : undefined;
+  const bccList = bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc) : undefined;
+
+  // Apply dynamic variables if provided
+  let finalSubject = subject;
+  let finalHtml = html;
+  if (variables && typeof variables === "object") {
+    for (const [key, val] of Object.entries(variables)) {
+      const regex = new RegExp(`{{${key}}}`, "g");
+      finalSubject = finalSubject.replace(regex, String(val ?? ""));
+      finalHtml = finalHtml.replace(regex, String(val ?? ""));
+    }
+  }
+
+  // Format HTML if needed
+  finalHtml = formatSimulcastEmail(finalHtml);
+
+  // Normalize all attachment inputs into an array
+  const rawAttachments: EmailAttachment[] = [...(attachments || [])];
+  if (attachment) {
+    if (typeof attachment === "string") {
+      rawAttachments.push({
+        filename: attachment.split("/").pop() || "document.pdf",
+        path: attachment,
+      });
+    } else if (typeof attachment === "object") {
+      rawAttachments.push(attachment);
+    }
+  }
+
+  // If attachCompanyProfile requested or explicitly asking to send company profile with attachment
+  if (attachCompanyProfile) {
+    try {
+      const { ensureSimulcastDocs } = await import("@/lib/pdf-generator");
+      const { profilePath } = await ensureSimulcastDocs();
+      rawAttachments.push({
+        filename: "Simulcast_Technologies_Company_Profile.pdf",
+        path: profilePath,
+        contentType: "application/pdf",
+      });
+    } catch (docErr) {
+      console.warn("[PDF Doc Generation Warning]:", docErr);
+    }
+  }
+
   try {
     const mailClient = getTransporter();
-    const recipientList = Array.isArray(to) ? to.join(", ") : to;
-    const ccList = cc ? (Array.isArray(cc) ? cc.join(", ") : cc) : undefined;
-    const bccList = bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc) : undefined;
 
-    // Apply dynamic variables if provided
-    let finalSubject = subject;
-    let finalHtml = html;
-    if (variables && typeof variables === "object") {
-      for (const [key, val] of Object.entries(variables)) {
-        const regex = new RegExp(`{{${key}}}`, "g");
-        finalSubject = finalSubject.replace(regex, String(val ?? ""));
-        finalHtml = finalHtml.replace(regex, String(val ?? ""));
-      }
-    }
-
-    // Format HTML if needed
-    finalHtml = formatSimulcastEmail(finalHtml);
-
-    // Resolve local paths and remote URLs in attachments asynchronously
+    // Resolve local paths, base64 content, and remote URLs in attachments asynchronously
     const resolvedAttachments = await Promise.all(
-      (attachments || []).map(async (att) => {
+      rawAttachments.map(async (att, idx) => {
+        let filename = att.filename || `Simulcast_Attachment_${idx + 1}.pdf`;
+        let contentType = att.contentType;
+        let content: Buffer | string | undefined = att.content;
+        let finalPath = att.path;
+
+        // Check if path or filename indicates company profile or brochure
+        if (
+          finalPath === "company_profile" ||
+          finalPath === "profile" ||
+          filename.toLowerCase() === "company_profile"
+        ) {
+          try {
+            const { ensureSimulcastDocs } = await import("@/lib/pdf-generator");
+            const docs = await ensureSimulcastDocs();
+            finalPath = docs.profilePath;
+            filename = "Simulcast_Technologies_Company_Profile.pdf";
+            contentType = "application/pdf";
+          } catch {}
+        } else if (finalPath === "brochure" || filename.toLowerCase() === "brochure") {
+          try {
+            const { ensureSimulcastDocs } = await import("@/lib/pdf-generator");
+            const docs = await ensureSimulcastDocs();
+            finalPath = docs.brochurePath;
+            filename = "Simulcast_Solutions_Brochure.pdf";
+            contentType = "application/pdf";
+          } catch {}
+        }
+
         // If remote URL is supplied, download content directly
-        if (att.url && !att.content && !att.path) {
+        if (att.url && !content && !finalPath) {
           try {
             const res = await fetch(att.url);
             if (res.ok) {
               const arrayBuf = await res.arrayBuffer();
               return {
-                filename: att.filename,
+                filename,
                 content: Buffer.from(arrayBuf),
-                contentType: att.contentType || res.headers.get("content-type") || undefined,
+                contentType: contentType || res.headers.get("content-type") || "application/octet-stream",
               };
             }
           } catch (err) {
@@ -145,27 +233,55 @@ export async function sendEmail({
           }
         }
 
-        // If local public or upload path is supplied
+        // Handle Base64 string payload
+        if (typeof content === "string") {
+          const isDataUri = content.startsWith("data:");
+          if (isDataUri) {
+            const semi = content.indexOf(";");
+            if (semi !== -1 && !contentType) {
+              contentType = content.slice(5, semi);
+            }
+          }
+          const cleanBase64 = content.replace(/^data:[^;]+;base64,/, "").trim();
+          try {
+            content = Buffer.from(cleanBase64, "base64");
+          } catch {
+            // Keep as string if not base64
+          }
+        }
+
+        // If local public, docs, or upload path is supplied
         if (
-          att.path &&
-          (att.path.startsWith("/uploads/") ||
-            att.path.startsWith("/media/") ||
-            att.path.startsWith("/visuals/") ||
-            att.path.startsWith("/brand/"))
+          finalPath &&
+          (finalPath.startsWith("/uploads/") ||
+            finalPath.startsWith("/media/") ||
+            finalPath.startsWith("/visuals/") ||
+            finalPath.startsWith("/brand/") ||
+            finalPath.startsWith("/docs/") ||
+            finalPath.startsWith("uploads/") ||
+            finalPath.startsWith("media/") ||
+            finalPath.startsWith("docs/"))
         ) {
-          const fullPath = require("path").join(process.cwd(), "public", att.path.replace(/^\//, ""));
+          const relPath = finalPath.replace(/^\//, "");
+          const fullPath = require("path").join(process.cwd(), "public", relPath);
           return {
-            filename: att.filename,
+            filename,
             path: fullPath,
-            contentType: att.contentType,
+            contentType,
           };
         }
-        return att;
+
+        return {
+          filename,
+          content,
+          path: finalPath,
+          contentType,
+        };
       })
     );
 
     const info = await mailClient.sendMail({
-      from: emailFrom,
+      from: finalFrom,
       to: recipientList,
       cc: ccList,
       bcc: bccList,
@@ -175,11 +291,70 @@ export async function sendEmail({
       attachments: resolvedAttachments,
     });
 
-    console.log(`[Email Sent] Subject: "${finalSubject}" to: ${recipientList} (ID: ${info.messageId})`);
+    console.log(`[Email Sent] From: ${finalFrom} Subject: "${finalSubject}" to: ${recipientList} (ID: ${info.messageId})`);
+
+    // Prepare attachment metadata for Webmail display
+    const webmailAttachments = resolvedAttachments.map((a, i) => {
+      const size = a.content
+        ? Buffer.isBuffer(a.content)
+          ? a.content.length
+          : String(a.content).length
+        : undefined;
+      let url: string | undefined = undefined;
+      if (typeof a.path === "string" && a.path.includes("public")) {
+        url = a.path.split("public")[1].replace(/\\/g, "/");
+      }
+      return {
+        id: `att_${i + 1}`,
+        filename: a.filename || `attachment_${i + 1}`,
+        contentType: a.contentType || "application/octet-stream",
+        size,
+        path: typeof a.path === "string" ? a.path : undefined,
+        url,
+      };
+    });
+
+    // Auto-record into Webmail Sent Folder
+    try {
+      const { recordWebmailOutgoingMessage } = await import("@/lib/webmail");
+      await recordWebmailOutgoingMessage({
+        from: finalFrom,
+        fromAccount: senderEmail,
+        fromEmail: senderEmail,
+        to: recipientList,
+        cc: ccList,
+        bcc: bccList,
+        subject: finalSubject,
+        bodyHtml: finalHtml,
+        bodyText: text,
+        attachments: webmailAttachments,
+        isSent: true,
+        messageId: info.messageId,
+      });
+    } catch {}
+
     return { ok: true, messageId: info.messageId };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.warn(`[Email Delivery Notice] Failed sending email via SMTP: ${errorMsg}`);
+
+    // Auto-record failure into Webmail for audit
+    try {
+      const { recordWebmailOutgoingMessage } = await import("@/lib/webmail");
+      await recordWebmailOutgoingMessage({
+        from: finalFrom,
+        fromAccount: senderEmail,
+        fromEmail: senderEmail,
+        to: recipientList,
+        cc: ccList,
+        bcc: bccList,
+        subject: finalSubject,
+        bodyHtml: finalHtml,
+        bodyText: text,
+        isSent: false,
+      });
+    } catch {}
+
     return { ok: false, error: errorMsg };
   }
 }
