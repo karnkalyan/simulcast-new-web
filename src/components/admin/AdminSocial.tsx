@@ -95,8 +95,9 @@ export default function AdminSocial() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // LinkedIn Connect Form
-  const [liClientId, setLiClientId] = useState("8629t1e7shscbw");
+  const [liClientId, setLiClientId] = useState("");
   const [liClientSecret, setLiClientSecret] = useState("");
+  const [liAccountName, setLiAccountName] = useState("");
   const [liOrgUrn, setLiOrgUrn] = useState("");
   const [liToken, setLiToken] = useState("");
   const [liAccountType, setLiAccountType] = useState<"ORGANIZATION" | "PROFILE">("ORGANIZATION");
@@ -178,10 +179,15 @@ export default function AdminSocial() {
         setFbUserToken(token);
         setShowFacebookModal(true);
         handleFetchFacebookPages(token);
+        toast.success("Meta OAuth authorization successful! Fetching your managed Facebook Pages...");
       } else if (oauthSuccess === "linkedin" && token) {
         setLiToken(token);
+        const urlUrn = params.get("urn");
+        const urlName = params.get("name");
+        if (urlUrn) setLiOrgUrn(urlUrn);
+        if (urlName) setLiAccountName(urlName);
         setShowLinkedInModal(true);
-        toast.success("LinkedIn authorization code received! Select account type and complete connection.");
+        toast.success("LinkedIn OAuth successful! Review details and click Save & Connect Page.");
       }
     }
   }, []);
@@ -274,12 +280,12 @@ export default function AdminSocial() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           platform: "LINKEDIN",
-          accountName: "Simulcast Technologies Pvt. Ltd.",
+          accountName: liAccountName.trim() || (liAccountType === "ORGANIZATION" ? "LinkedIn Organization Page" : "LinkedIn Member Profile"),
           accountType: liAccountType,
-          targetId: orgUrn.split(":").pop() || "simulcast",
+          targetId: orgUrn.split(":").pop() || orgUrn,
           authorUrn: orgUrn,
           accessToken: token,
-          category: "Broadcast & IT Engineering",
+          category: liAccountType === "ORGANIZATION" ? "Organization Page" : "Member Profile",
         }),
       });
       if (res.ok) {
@@ -446,7 +452,9 @@ export default function AdminSocial() {
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14, color: "#2b0d3a" }}>LinkedIn Page</div>
-                  <div style={{ fontSize: 11, color: "#7b6f84" }}>App Client ID: 8629t1e7shscbw</div>
+                  <div style={{ fontSize: 11, color: "#7b6f84" }}>
+                    {liClientId ? `App Client ID: ${liClientId}` : "Official Company Channel"}
+                  </div>
                 </div>
               </div>
 
@@ -477,7 +485,7 @@ export default function AdminSocial() {
               </div>
             ) : (
               <p style={{ fontSize: 12, color: "#7b6f84", margin: "0 0 14px" }}>
-                Connect your LinkedIn company page using Client ID <code>8629t1e7shscbw</code> to publish technical updates.
+                Connect your official LinkedIn Company Page or profile via OAuth 2.0 or Access Token to publish technical announcements.
               </p>
             )}
           </div>
@@ -1247,13 +1255,27 @@ export default function AdminSocial() {
             <div className="admin-modal-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                  Client ID (Pre-configured):
+                  Account / Organization Display Name:
+                </label>
+                <input
+                  type="text"
+                  value={liAccountName}
+                  onChange={(e) => setLiAccountName(e.target.value)}
+                  placeholder="e.g. Simulcast Nepal or Kalyan Karn"
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
+                  LinkedIn App Client ID:
                 </label>
                 <input
                   type="text"
                   value={liClientId}
                   onChange={(e) => setLiClientId(e.target.value)}
-                  style={{ width: "100%", padding: "8px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
+                  placeholder="Enter your Client ID from LinkedIn Developer Portal"
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
                 />
               </div>
 
@@ -1261,7 +1283,7 @@ export default function AdminSocial() {
                 <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
                   Publishing Role / Target Type:
                 </label>
-                <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ display: "flex", gap: 14 }}>
                   <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer" }}>
                     <input
                       type="radio"
@@ -1283,40 +1305,45 @@ export default function AdminSocial() {
 
               <div>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                  Author URN (e.g. urn:li:organization:1234567 or urn:li:person:abcdef):
+                  Author URN (Required for posting):
                 </label>
                 <input
                   type="text"
                   value={liOrgUrn}
                   onChange={(e) => setLiOrgUrn(e.target.value)}
-                  placeholder="urn:li:organization:{organizationId}"
-                  style={{ width: "100%", padding: "8px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
+                  placeholder={liAccountType === "ORGANIZATION" ? "urn:li:organization:{numericId}" : "urn:li:person:{personSub}"}
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
                 />
-                <span style={{ fontSize: 11, color: "#8a7e92", marginTop: 2, display: "block" }}>
-                  Find your numeric Organization ID from your LinkedIn Company Page admin URL.
+                <span style={{ fontSize: 11, color: "#8a7e92", marginTop: 3, display: "block" }}>
+                  {liAccountType === "ORGANIZATION"
+                    ? "Find your numeric Organization ID from your LinkedIn Company Page admin URL (e.g. urn:li:organization:12345678)."
+                    : "Your personal LinkedIn member URN (automatically filled when signing in with OAuth)."}
                 </span>
               </div>
 
               <div>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                  LinkedIn OAuth Token or Access Token:
+                  LinkedIn OAuth / Access Token:
                 </label>
                 <input
                   type="password"
                   value={liToken}
                   onChange={(e) => setLiToken(e.target.value)}
                   placeholder="Paste LinkedIn Access Token (or click Sign in with LinkedIn below)"
-                  style={{ width: "100%", padding: "8px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
                 />
               </div>
 
-              <div style={{ background: "#f8fafd", padding: "10px 12px", borderRadius: 6, fontSize: 11, color: "#64748b" }}>
-                <strong>Tip:</strong> In your LinkedIn Developer Portal, set Authorized Redirect URL to:<br/>
-                <code>{typeof window !== "undefined" ? window.location.origin : "https://www.simulcast.com.np"}/api/social/callback/linkedin</code>
+              <div style={{ background: "#f8fafd", border: "1px solid #e2e8f0", padding: "10px 12px", borderRadius: 6, fontSize: 11, color: "#475569", lineHeight: 1.5 }}>
+                <strong style={{ color: "#0a66c2" }}>Official OAuth Redirect URL:</strong><br/>
+                Add this exact URI in your LinkedIn Developer Portal &gt; Auth &gt; Authorized redirect URLs:<br/>
+                <code style={{ wordBreak: "break-all", background: "#eef2ff", padding: "2px 6px", borderRadius: 3, display: "inline-block", marginTop: 4 }}>
+                  {typeof window !== "undefined" ? window.location.origin : "https://www.simulcast.com.np"}/api/social/callback/linkedin
+                </code>
               </div>
             </div>
 
-            <div className="admin-modal-footer" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+            <div className="admin-modal-footer" style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   type="button"
@@ -1328,13 +1355,18 @@ export default function AdminSocial() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (!liClientId || !liClientId.trim()) {
+                      toast.error("Please enter your LinkedIn Client ID above or save it in API Keys & OAuth!");
+                      return;
+                    }
                     const redirectUri = encodeURIComponent(`${window.location.origin}/api/social/callback/linkedin`);
-                    const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${liClientId}&redirect_uri=${redirectUri}&scope=openid%20profile%20w_member_social%20email`;
+                    const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${encodeURIComponent(liClientId.trim())}&redirect_uri=${redirectUri}&scope=openid%20profile%20w_member_social%20email`;
                     window.location.href = authUrl;
                   }}
                   className="btn btn-outline btn-sm"
+                  style={{ borderColor: "#0a66c2", color: "#0a66c2" }}
                 >
-                  Sign in with LinkedIn
+                  <Linkedin size={13} style={{ marginRight: 4 }} /> Sign in with Official OAuth
                 </button>
               </div>
 
@@ -1406,12 +1438,58 @@ export default function AdminSocial() {
               {fbStep === "TOKEN" ? (
                 <>
                   <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.5 }}>
-                    Enter your Meta User Access Token to retrieve the official Facebook Pages and linked Instagram accounts you manage.
+                    Connect using official Meta OAuth 2.0 or paste a User Access Token from Graph API Explorer to discover and link your Facebook Pages &amp; attached Instagram Business accounts.
                   </p>
+
+                  <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "12px", borderRadius: 8 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: "#166534", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                      <Facebook size={14} color="#1877f2" /> Option 1: Official Meta OAuth 2.0 (Recommended)
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#374151", marginBottom: 3 }}>
+                        Meta Developer App ID:
+                      </label>
+                      <input
+                        type="text"
+                        value={fbAppId}
+                        onChange={(e) => setFbAppId(e.target.value)}
+                        placeholder="Enter your Meta App ID from developers.facebook.com"
+                        style={{ width: "100%", padding: "7px 10px", border: "1px solid #cbd5e1", borderRadius: 4, fontSize: 12 }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!fbAppId || !fbAppId.trim()) {
+                          toast.error("Please enter your Meta App ID above or in API Keys & OAuth!");
+                          return;
+                        }
+                        const redirectUri = encodeURIComponent(`${window.location.origin}/api/social/callback/facebook`);
+                        const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${encodeURIComponent(fbAppId.trim())}&redirect_uri=${redirectUri}&scope=pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish&response_type=code`;
+                        window.location.href = authUrl;
+                      }}
+                      className="btn btn-pink btn-sm"
+                      style={{ background: "#1877f2", borderColor: "#1877f2", display: "inline-flex", alignItems: "center", gap: 6 }}
+                    >
+                      <Facebook size={13} /> Sign in with Official Meta OAuth
+                    </button>
+                    <div style={{ fontSize: 10, color: "#64748b", marginTop: 8 }}>
+                      Valid OAuth Redirect URI to register in Facebook Login settings:
+                      <code style={{ display: "block", background: "#ffffff", padding: "2px 6px", borderRadius: 3, marginTop: 2, wordBreak: "break-all" }}>
+                        {typeof window !== "undefined" ? window.location.origin : "https://www.simulcast.com.np"}/api/social/callback/facebook
+                      </code>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}>
+                    <div style={{ flex: 1, height: 1, background: "#e2e8f0" }}></div>
+                    <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700 }}>OR</span>
+                    <div style={{ flex: 1, height: 1, background: "#e2e8f0" }}></div>
+                  </div>
 
                   <div>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                      Meta User Access Token:
+                      Option 2: Direct Meta User Access Token:
                     </label>
                     <input
                       type="password"
@@ -1422,10 +1500,10 @@ export default function AdminSocial() {
                     />
                   </div>
 
-                  <div style={{ background: "#f8fafd", padding: "12px 14px", borderRadius: 6, fontSize: 11, color: "#475569", lineHeight: 1.6 }}>
-                    <div style={{ fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>Required Meta Permissions:</div>
+                  <div style={{ background: "#f8fafd", padding: "10px 12px", borderRadius: 6, fontSize: 11, color: "#475569", lineHeight: 1.5 }}>
+                    <div style={{ fontWeight: 700, color: "#1e293b", marginBottom: 3 }}>Required Meta Permissions for Graph Explorer:</div>
                     <code>pages_show_list, pages_read_engagement, pages_manage_posts, instagram_basic, instagram_content_publish</code>
-                    <div style={{ marginTop: 8 }}>
+                    <div style={{ marginTop: 6 }}>
                       <a
                         href="https://developers.facebook.com/tools/explorer/"
                         target="_blank"

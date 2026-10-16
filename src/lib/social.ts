@@ -55,7 +55,7 @@ const POSTS_FILE = path.join(DATA_DIR, "social-posts.json");
 const SETTINGS_FILE = path.join(DATA_DIR, "social-settings.json");
 
 const DEFAULT_SETTINGS: SocialSettingsConfig = {
-  linkedinClientId: process.env.LINKEDIN_CLIENT_ID || "8629t1e7shscbw",
+  linkedinClientId: process.env.LINKEDIN_CLIENT_ID || "",
   linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET || "",
   facebookAppId: process.env.FACEBOOK_APP_ID || "",
   facebookAppSecret: process.env.FACEBOOK_APP_SECRET || "",

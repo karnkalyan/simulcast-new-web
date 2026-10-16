@@ -54,14 +54,15 @@ export async function POST(request: Request) {
     // If Facebook page also had a linked Instagram account, automatically connect/update Instagram!
     if (platform === "FACEBOOK" && instagramAccount && instagramAccount.id) {
       const filteredNoIg = updated.filter((a) => a.platform !== "INSTAGRAM");
+      const igHandle = String(instagramAccount.username || instagramAccount.name || instagramAccount.id);
       filteredNoIg.push({
         id: `acc_instagram_${instagramAccount.id}`,
         platform: "INSTAGRAM",
-        accountName: `@${instagramAccount.username || "simulcast_technologies"}`,
+        accountName: `@${igHandle}`,
         accountType: "BUSINESS_ACCOUNT",
-        targetId: instagramAccount.id,
+        targetId: String(instagramAccount.id),
         accessToken, // Instagram Graph uses the Facebook Page token
-        pageUrl: `https://www.instagram.com/${instagramAccount.username || "simulcast_technologies"}`,
+        pageUrl: instagramAccount.username ? `https://www.instagram.com/${instagramAccount.username}` : undefined,
         avatarUrl: "/media/logo-mark.png",
         category: "Connected Instagram Business Account",
         status: "CONNECTED",
