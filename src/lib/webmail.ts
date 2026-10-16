@@ -76,19 +76,19 @@ const DEFAULT_ACCOUNTS: MailAccountItem[] = [
   {
     id: "acc_support",
     name: "Simulcast Support NOC",
-    email: "support@simulcast.com.np",
+    email: process.env.EMAIL_USER || process.env.SUPPORT_EMAIL || "support@simulcast.com.np",
     isDefault: true,
     status: "ACTIVE",
     incomingType: "IMAP",
     incomingHost: process.env.IMAP_HOST || "mail.simulcast.com.np",
-    incomingPort: 993,
+    incomingPort: parseInt(process.env.IMAP_PORT || "993", 10),
     incomingSecure: true,
-    incomingUser: "support@simulcast.com.np",
+    incomingUser: process.env.EMAIL_USER || "support@simulcast.com.np",
     incomingPass: process.env.EMAIL_PASS || "support@simulcast",
     outgoingHost: process.env.SMTP_HOST || "mail.simulcast.com.np",
     outgoingPort: parseInt(process.env.SMTP_PORT || "587", 10),
-    outgoingSecure: false,
-    outgoingUser: "support@simulcast.com.np",
+    outgoingSecure: process.env.SMTP_SECURE === "true",
+    outgoingUser: process.env.EMAIL_USER || "support@simulcast.com.np",
     outgoingPass: process.env.EMAIL_PASS || "support@simulcast",
     signature: "<p><strong>24/7 Technical Support Desk</strong><br/>Simulcast Technologies Pvt. Ltd.<br/>Kathmandu, Nepal | +977-1-5912345</p>",
     color: "#e11d72", // Pink / Magenta
@@ -197,7 +197,25 @@ async function readAccountsFallback(): Promise<MailAccountItem[]> {
   await ensureDataFiles();
   try {
     const raw = await fs.readFile(ACCOUNTS_FILE, "utf8");
-    return JSON.parse(raw);
+    const accounts: MailAccountItem[] = JSON.parse(raw);
+    const supportAcc = accounts.find((a) => a.id === "acc_support" || a.isDefault);
+    if (supportAcc) {
+      if (process.env.EMAIL_USER) {
+        supportAcc.email = process.env.EMAIL_USER;
+        supportAcc.incomingUser = process.env.EMAIL_USER;
+        supportAcc.outgoingUser = process.env.EMAIL_USER;
+      }
+      if (process.env.EMAIL_PASS) {
+        supportAcc.incomingPass = process.env.EMAIL_PASS;
+        supportAcc.outgoingPass = process.env.EMAIL_PASS;
+      }
+      if (process.env.SMTP_HOST) supportAcc.outgoingHost = process.env.SMTP_HOST;
+      if (process.env.SMTP_PORT) supportAcc.outgoingPort = parseInt(process.env.SMTP_PORT, 10);
+      if (process.env.SMTP_SECURE !== undefined) supportAcc.outgoingSecure = process.env.SMTP_SECURE === "true";
+      if (process.env.IMAP_HOST) supportAcc.incomingHost = process.env.IMAP_HOST;
+      if (process.env.IMAP_PORT) supportAcc.incomingPort = parseInt(process.env.IMAP_PORT, 10);
+    }
+    return accounts;
   } catch {
     return DEFAULT_ACCOUNTS;
   }

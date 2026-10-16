@@ -20,6 +20,17 @@ services:
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@simulcast.com.np}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-SimulcastDevAdmin2026!}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3079}
+      # Corporate Support & Webmail Credentials
+      SMTP_HOST: ${SMTP_HOST:-mail.simulcast.com.np}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      EMAIL_USER: ${EMAIL_USER:-support@simulcast.com.np}
+      EMAIL_PASS: ${EMAIL_PASS:-support@simulcast}
+      EMAIL_FROM: ${EMAIL_FROM:-Simulcast Live Support <support@simulcast.com.np>}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@simulcast.com.np}
+      ESCALATION_EMAILS: ${ESCALATION_EMAILS:-info@simulcast.com.np,support@simulcast.com.np}
+      IMAP_HOST: ${IMAP_HOST:-mail.simulcast.com.np}
+      IMAP_PORT: ${IMAP_PORT:-993}
     ports:
       - "3079:3079"
     extra_hosts:
