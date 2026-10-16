@@ -81,7 +81,7 @@ export default function AdminSocial() {
 
   // Composer State
   const [content, setContent] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("/media/control-room-concept.webp");
+  const [mediaUrl, setMediaUrl] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<Array<"LINKEDIN" | "FACEBOOK" | "INSTAGRAM">>([
     "LINKEDIN",
     "FACEBOOK",
@@ -97,7 +97,7 @@ export default function AdminSocial() {
   // LinkedIn Connect Form
   const [liClientId, setLiClientId] = useState("8629t1e7shscbw");
   const [liClientSecret, setLiClientSecret] = useState("");
-  const [liOrgUrn, setLiOrgUrn] = useState("urn:li:organization:simulcast");
+  const [liOrgUrn, setLiOrgUrn] = useState("");
   const [liToken, setLiToken] = useState("");
   const [liAccountType, setLiAccountType] = useState<"ORGANIZATION" | "PROFILE">("ORGANIZATION");
 
@@ -139,6 +139,28 @@ export default function AdminSocial() {
       setLoading(false);
     }
   }
+
+  // Prevent background scroll and allow ESC key to close any active modal
+  useEffect(() => {
+    const isAnyModalOpen = showLinkedInModal || showFacebookModal || showSettingsModal;
+    if (typeof document !== "undefined") {
+      document.body.style.overflow = isAnyModalOpen ? "hidden" : "";
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowLinkedInModal(false);
+        setShowFacebookModal(false);
+        setShowSettingsModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (typeof document !== "undefined") {
+        document.body.style.overflow = "";
+      }
+    };
+  }, [showLinkedInModal, showFacebookModal, showSettingsModal]);
 
   useEffect(() => {
     loadData();
@@ -235,8 +257,17 @@ export default function AdminSocial() {
 
   // LinkedIn Connection Handler
   async function handleSaveLinkedIn() {
-    const token = liToken.trim() || "simulcast_verified_linkedin_token";
-    const orgUrn = liOrgUrn.trim() || "urn:li:organization:simulcast";
+    const token = liToken.trim();
+    if (!token) {
+      toast.error("Please paste your LinkedIn Access Token, or sign in via OAuth below.");
+      return;
+    }
+    const orgUrn = liOrgUrn.trim();
+    if (!orgUrn) {
+      toast.error("Please enter your LinkedIn URN (e.g. urn:li:organization:12345 or urn:li:person:your_profile_id).");
+      return;
+    }
+
     try {
       const res = await fetch("/api/admin/social/connect", {
         method: "POST",
@@ -266,7 +297,12 @@ export default function AdminSocial() {
 
   // Facebook Pages Discovery Handler ("after login success choose page karo aur connect karo")
   async function handleFetchFacebookPages(tokenToUse?: string) {
-    const token = tokenToUse || fbUserToken.trim() || "simulcast_demo_token";
+    const token = (tokenToUse || fbUserToken).trim();
+    if (!token) {
+      toast.error("Please paste your Meta User Access Token to discover your Facebook Pages.");
+      return;
+    }
+
     setFbLoadingPages(true);
     try {
       const res = await fetch("/api/admin/social/pages", {
@@ -863,11 +899,34 @@ export default function AdminSocial() {
             </div>
           </div>
 
+          {/* Channel Warning if none connected */}
+          {accounts.length === 0 && (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 14px",
+                background: "#fef3c7",
+                border: "1px solid #fde68a",
+                borderRadius: 6,
+                fontSize: 12,
+                color: "#92400e",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <AlertCircle size={16} color="#d97706" style={{ flexShrink: 0 }} />
+              <span>
+                <strong>No social accounts connected.</strong> Connect your LinkedIn Company Page or Facebook Page above to enable live broadcasting.
+              </span>
+            </div>
+          )}
+
           {/* Submit Button */}
           <button
             type="button"
             onClick={handlePublish}
-            disabled={posting || !content.trim()}
+            disabled={posting || !content.trim() || accounts.length === 0}
             className="btn btn-pink btn-md"
             style={{ width: "100%", justifyContent: "center", gap: 8 }}
           >
@@ -1050,8 +1109,14 @@ export default function AdminSocial() {
             <tbody>
               {posts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 36, color: "#9d8f9e" }}>
-                    No posts published yet. Use the composer above to publish your first announcement.
+                  <td colSpan={6} style={{ textAlign: "center", padding: "48px 24px", color: "#7b6f84" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                      <Share2 size={32} color="#c8bccb" />
+                      <strong style={{ fontSize: 14, color: "#2b0d3a" }}>No Social Posts Published Yet</strong>
+                      <p style={{ margin: 0, fontSize: 12, color: "#8a7e92", maxWidth: 440 }}>
+                        Connect your LinkedIn or Facebook channels above, then compose your first announcement in the Post Composer to publish across official channels.
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -1130,14 +1195,51 @@ export default function AdminSocial() {
 
       {/* MODAL 1: Connect LinkedIn */}
       {showLinkedInModal && (
-        <div className="admin-modal-overlay">
-          <div className="admin-modal-card" style={{ maxWidth: 520 }}>
+        <div
+          className="admin-modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowLinkedInModal(false);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 999999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(18, 10, 25, 0.78)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            padding: "20px",
+            overflowY: "auto",
+          }}
+        >
+          <div
+            className="admin-modal-card"
+            style={{
+              maxWidth: 540,
+              width: "100%",
+              background: "#ffffff",
+              borderRadius: 12,
+              boxShadow: "0 25px 80px rgba(18, 10, 25, 0.45)",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              position: "relative",
+              margin: "auto",
+            }}
+          >
             <div className="admin-modal-header">
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Linkedin size={18} color="#0a66c2" />
                 <h3 style={{ margin: 0, fontSize: 16 }}>Connect LinkedIn Page</h3>
               </div>
-              <button type="button" onClick={() => setShowLinkedInModal(false)} className="btn btn-outline btn-xs">
+              <button
+                type="button"
+                onClick={() => setShowLinkedInModal(false)}
+                className="btn btn-outline btn-xs"
+                title="Close"
+              >
                 <X size={14} />
               </button>
             </div>
@@ -1181,7 +1283,7 @@ export default function AdminSocial() {
 
               <div>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                  Author URN (e.g. urn:li:organization:simulcast):
+                  Author URN (e.g. urn:li:organization:1234567 or urn:li:person:abcdef):
                 </label>
                 <input
                   type="text"
@@ -1190,6 +1292,9 @@ export default function AdminSocial() {
                   placeholder="urn:li:organization:{organizationId}"
                   style={{ width: "100%", padding: "8px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
                 />
+                <span style={{ fontSize: 11, color: "#8a7e92", marginTop: 2, display: "block" }}>
+                  Find your numeric Organization ID from your LinkedIn Company Page admin URL.
+                </span>
               </div>
 
               <div>
@@ -1200,7 +1305,7 @@ export default function AdminSocial() {
                   type="password"
                   value={liToken}
                   onChange={(e) => setLiToken(e.target.value)}
-                  placeholder="Paste LinkedIn Access Token (or click Connect with OAuth below)"
+                  placeholder="Paste LinkedIn Access Token (or click Sign in with LinkedIn below)"
                   style={{ width: "100%", padding: "8px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
                 />
               </div>
@@ -1212,17 +1317,26 @@ export default function AdminSocial() {
             </div>
 
             <div className="admin-modal-footer" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  const redirectUri = encodeURIComponent(`${window.location.origin}/api/social/callback/linkedin`);
-                  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${liClientId}&redirect_uri=${redirectUri}&scope=openid%20profile%20w_member_social%20email`;
-                  window.location.href = authUrl;
-                }}
-                className="btn btn-outline btn-sm"
-              >
-                Sign in with LinkedIn
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowLinkedInModal(false)}
+                  className="btn btn-outline btn-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const redirectUri = encodeURIComponent(`${window.location.origin}/api/social/callback/linkedin`);
+                    const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${liClientId}&redirect_uri=${redirectUri}&scope=openid%20profile%20w_member_social%20email`;
+                    window.location.href = authUrl;
+                  }}
+                  className="btn btn-outline btn-sm"
+                >
+                  Sign in with LinkedIn
+                </button>
+              </div>
 
               <button
                 type="button"
@@ -1239,14 +1353,51 @@ export default function AdminSocial() {
 
       {/* MODAL 2: Connect Facebook & Choose Page Flow */}
       {showFacebookModal && (
-        <div className="admin-modal-overlay">
-          <div className="admin-modal-card" style={{ maxWidth: 560 }}>
+        <div
+          className="admin-modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowFacebookModal(false);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 999999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(18, 10, 25, 0.78)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            padding: "20px",
+            overflowY: "auto",
+          }}
+        >
+          <div
+            className="admin-modal-card"
+            style={{
+              maxWidth: 580,
+              width: "100%",
+              background: "#ffffff",
+              borderRadius: 12,
+              boxShadow: "0 25px 80px rgba(18, 10, 25, 0.45)",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              position: "relative",
+              margin: "auto",
+            }}
+          >
             <div className="admin-modal-header">
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Facebook size={18} color="#1877f2" />
-                <h3 style={{ margin: 0, fontSize: 16 }}>Connect Facebook & Instagram</h3>
+                <h3 style={{ margin: 0, fontSize: 16 }}>Connect Facebook Page & Instagram</h3>
               </div>
-              <button type="button" onClick={() => setShowFacebookModal(false)} className="btn btn-outline btn-xs">
+              <button
+                type="button"
+                onClick={() => setShowFacebookModal(false)}
+                className="btn btn-outline btn-xs"
+                title="Close"
+              >
                 <X size={14} />
               </button>
             </div>
@@ -1254,44 +1405,43 @@ export default function AdminSocial() {
             <div className="admin-modal-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {fbStep === "TOKEN" ? (
                 <>
-                  <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
-                    Step 1: Sign in with Facebook or paste your User Access Token to retrieve all the Facebook Pages you manage.
+                  <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.5 }}>
+                    Enter your Meta User Access Token to retrieve the official Facebook Pages and linked Instagram accounts you manage.
                   </p>
 
                   <div>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                      User Access Token:
+                      Meta User Access Token:
                     </label>
                     <input
                       type="password"
                       value={fbUserToken}
                       onChange={(e) => setFbUserToken(e.target.value)}
-                      placeholder="Paste User Access Token with pages_manage_posts scope"
-                      style={{ width: "100%", padding: "8px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
+                      placeholder="Paste User Access Token (e.g. EAAB...)"
+                      style={{ width: "100%", padding: "10px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
                     />
                   </div>
 
-                  <div style={{ background: "#f8fafd", padding: "10px 12px", borderRadius: 6, fontSize: 11, color: "#64748b" }}>
-                    Once authenticated, you will be able to pick your official Facebook Page and linked Instagram account.
-                  </div>
-
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <button
-                      type="button"
-                      onClick={() => handleFetchFacebookPages()}
-                      disabled={fbLoadingPages}
-                      className="btn btn-pink btn-sm"
-                      style={{ flex: 1, background: "#1877f2", borderColor: "#1877f2" }}
-                    >
-                      {fbLoadingPages ? "Loading Your Pages..." : "Discover & Choose Managed Pages"}
-                    </button>
+                  <div style={{ background: "#f8fafd", padding: "12px 14px", borderRadius: 6, fontSize: 11, color: "#475569", lineHeight: 1.6 }}>
+                    <div style={{ fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>Required Meta Permissions:</div>
+                    <code>pages_show_list, pages_read_engagement, pages_manage_posts, instagram_basic, instagram_content_publish</code>
+                    <div style={{ marginTop: 8 }}>
+                      <a
+                        href="https://developers.facebook.com/tools/explorer/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#1877f2", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}
+                      >
+                        Open Meta Graph API Explorer <ExternalLink size={11} />
+                      </a>
+                    </div>
                   </div>
                 </>
               ) : (
                 <>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <p style={{ fontSize: 12, fontWeight: 700, color: "#2b0d3a", margin: 0 }}>
-                      Step 2: Choose which Facebook Page to connect:
+                      Choose which Facebook Page to connect:
                     </p>
                     <button
                       type="button"
@@ -1302,45 +1452,85 @@ export default function AdminSocial() {
                     </button>
                   </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {fbDiscoveredPages.map((page) => (
-                      <div
-                        key={page.id}
-                        style={{
-                          border: "1.5px solid #eae4eb",
-                          borderRadius: 8,
-                          padding: 12,
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          background: "#ffffff",
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 13, color: "#2b0d3a" }}>{page.name}</div>
-                          <div style={{ fontSize: 11, color: "#64748b" }}>
-                            {page.category} &bull; Page ID: {page.id}
-                            {page.fanCount ? ` &bull; ${page.fanCount} followers` : ""}
-                          </div>
-                          {page.instagramBusinessAccount && (
-                            <div style={{ fontSize: 11, color: "#e11d72", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
-                              <Instagram size={12} /> Linked Instagram: @{page.instagramBusinessAccount.username}
-                            </div>
-                          )}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleConnectChosenPage(page)}
-                          className="btn btn-sm btn-pink"
-                          style={{ background: "#1877f2", borderColor: "#1877f2" }}
-                        >
-                          Connect Page
-                        </button>
+                  {fbDiscoveredPages.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "24px 16px", background: "#f8fafd", borderRadius: 8, color: "#64748b", fontSize: 12 }}>
+                      No Facebook Pages found associated with this user access token.
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                        Ensure your user account is an Administrator or Task editor of the Facebook Business Page.
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {fbDiscoveredPages.map((page) => (
+                        <div
+                          key={page.id}
+                          style={{
+                            border: "1.5px solid #eae4eb",
+                            borderRadius: 8,
+                            padding: 14,
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            background: "#ffffff",
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: "#2b0d3a" }}>{page.name}</div>
+                            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                              {page.category} &bull; Page ID: <code>{page.id}</code>
+                              {page.fanCount !== undefined ? ` &bull; ${page.fanCount.toLocaleString()} followers` : ""}
+                            </div>
+                            {page.instagramBusinessAccount && (
+                              <div style={{ fontSize: 11, color: "#e11d72", marginTop: 6, display: "flex", alignItems: "center", gap: 4, fontWeight: 600 }}>
+                                <Instagram size={13} /> Linked Instagram: @{page.instagramBusinessAccount.username}
+                              </div>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleConnectChosenPage(page)}
+                            className="btn btn-sm btn-pink"
+                            style={{ background: "#1877f2", borderColor: "#1877f2" }}
+                          >
+                            Connect Page
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </>
+              )}
+            </div>
+
+            <div className="admin-modal-footer" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFacebookModal(false);
+                  setFbStep("TOKEN");
+                }}
+                className="btn btn-outline btn-sm"
+              >
+                Close
+              </button>
+
+              {fbStep === "TOKEN" && (
+                <button
+                  type="button"
+                  onClick={() => handleFetchFacebookPages()}
+                  disabled={fbLoadingPages || !fbUserToken.trim()}
+                  className="btn btn-pink btn-sm"
+                  style={{ background: "#1877f2", borderColor: "#1877f2" }}
+                >
+                  {fbLoadingPages ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" /> Fetching Pages...
+                    </>
+                  ) : (
+                    "Discover & Choose Managed Pages"
+                  )}
+                </button>
               )}
             </div>
           </div>
@@ -1349,11 +1539,48 @@ export default function AdminSocial() {
 
       {/* MODAL 3: API Settings */}
       {showSettingsModal && (
-        <div className="admin-modal-overlay">
-          <div className="admin-modal-card" style={{ maxWidth: 500 }}>
+        <div
+          className="admin-modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowSettingsModal(false);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 999999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(18, 10, 25, 0.78)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            padding: "20px",
+            overflowY: "auto",
+          }}
+        >
+          <div
+            className="admin-modal-card"
+            style={{
+              maxWidth: 520,
+              width: "100%",
+              background: "#ffffff",
+              borderRadius: 12,
+              boxShadow: "0 25px 80px rgba(18, 10, 25, 0.45)",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              position: "relative",
+              margin: "auto",
+            }}
+          >
             <div className="admin-modal-header">
               <h3 style={{ margin: 0, fontSize: 16 }}>Social API Configuration</h3>
-              <button type="button" onClick={() => setShowSettingsModal(false)} className="btn btn-outline btn-xs">
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(false)}
+                className="btn btn-outline btn-xs"
+                title="Close"
+              >
                 <X size={14} />
               </button>
             </div>
@@ -1398,7 +1625,14 @@ export default function AdminSocial() {
                 />
               </div>
             </div>
-            <div className="admin-modal-footer">
+            <div className="admin-modal-footer" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(false)}
+                className="btn btn-outline btn-sm"
+              >
+                Cancel
+              </button>
               <button
                 type="button"
                 onClick={async () => {

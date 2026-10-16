@@ -25,25 +25,28 @@ export async function POST(request: Request) {
     }
 
     if (platform === "LINKEDIN") {
-      // Return organization entities for LinkedIn
-      return NextResponse.json({
-        pages: [
-          {
-            id: "simulcast-technologies",
-            authorUrn: "urn:li:organization:simulcast",
-            name: "Simulcast Technologies Pvt. Ltd.",
-            category: "Telecommunications & Broadcast Engineering",
+      // Query LinkedIn organizations for member if accessible
+      try {
+        const liRes = await fetch("https://api.linkedin.com/v2/organizationalEntityAcls?q=roleAssignee", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-Restli-Protocol-Version": "2.0.0",
+          },
+        });
+        if (liRes.ok) {
+          const liData = await liRes.json();
+          const elements = Array.isArray(liData.elements) ? liData.elements : [];
+          const orgs = elements.map((item: any) => ({
+            id: String(item.organizationalTarget || "").split(":").pop(),
+            authorUrn: item.organizationalTarget,
+            name: `Organization (${item.organizationalTarget})`,
+            category: item.role || "ADMINISTRATOR",
             type: "ORGANIZATION",
-          },
-          {
-            id: "kalyan-karn",
-            authorUrn: "urn:li:person:kalyan-karn",
-            name: "Kalyan Karn (Personal Profile)",
-            category: "Founder & Lead Engineer",
-            type: "PROFILE",
-          },
-        ],
-      });
+          }));
+          return NextResponse.json({ pages: orgs });
+        }
+      } catch {}
+      return NextResponse.json({ pages: [] });
     }
 
     return NextResponse.json({ pages: [] });

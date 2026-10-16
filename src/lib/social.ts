@@ -61,84 +61,9 @@ const DEFAULT_SETTINGS: SocialSettingsConfig = {
   facebookAppSecret: process.env.FACEBOOK_APP_SECRET || "",
 };
 
-const DEFAULT_ACCOUNTS: SocialAccountItem[] = [
-  {
-    id: "acc_linkedin_simulcast",
-    platform: "LINKEDIN",
-    accountName: "Simulcast Technologies Pvt. Ltd.",
-    accountType: "ORGANIZATION",
-    targetId: "simulcast-technologies",
-    authorUrn: "urn:li:organization:simulcast",
-    accessToken: "simulcast_demo_linkedin_token",
-    pageUrl: "https://www.linkedin.com/company/simulcast-technologies",
-    avatarUrl: "/media/logo-mark.png",
-    category: "Broadcast & Telecommunications Engineering",
-    status: "CONNECTED",
-    connectedAt: "2026-10-16T12:00:00.000Z",
-    lastPostAt: "2026-10-16T16:00:00.000Z",
-  },
-  {
-    id: "acc_facebook_simulcast",
-    platform: "FACEBOOK",
-    accountName: "Simulcast Technologies",
-    accountType: "PAGE",
-    targetId: "109283749281726",
-    accessToken: "simulcast_demo_fb_page_token",
-    pageUrl: "https://www.facebook.com/simulcast.com.np",
-    avatarUrl: "/media/logo-mark.png",
-    category: "Information Technology Company",
-    fanCount: 3420,
-    status: "CONNECTED",
-    connectedAt: "2026-10-16T12:00:00.000Z",
-    lastPostAt: "2026-10-16T15:30:00.000Z",
-  },
-  {
-    id: "acc_instagram_simulcast",
-    platform: "INSTAGRAM",
-    accountName: "@simulcast_technologies",
-    accountType: "BUSINESS_ACCOUNT",
-    targetId: "178414029384728",
-    accessToken: "simulcast_demo_fb_page_token",
-    pageUrl: "https://www.instagram.com/simulcast_technologies",
-    avatarUrl: "/media/logo-mark.png",
-    category: "Broadcast & IT Engineering",
-    status: "CONNECTED",
-    connectedAt: "2026-10-16T12:00:00.000Z",
-    lastPostAt: "2026-10-16T15:30:00.000Z",
-  },
-];
+const DEFAULT_ACCOUNTS: SocialAccountItem[] = [];
 
-const DEFAULT_POSTS: SocialPostItem[] = [
-  {
-    id: "spost_init_01",
-    content: "We are proud to present our next-generation 24/7 master control playout and cloud OTT transcoding platforms, engineered specifically for high-availability broadcast operations across Nepal. #Broadcasting #PlayoutAutomation #Simulcast #NepalTech",
-    mediaUrl: "/media/control-room-concept.webp",
-    author: "Simulcast Engineering",
-    platforms: [
-      {
-        platform: "LINKEDIN",
-        status: "PUBLISHED",
-        postId: "urn:li:share:724918237491",
-        postUrl: "https://www.linkedin.com/feed/update/urn:li:share:724918237491",
-      },
-      {
-        platform: "FACEBOOK",
-        status: "PUBLISHED",
-        postId: "109283749281726_8492019283",
-        postUrl: "https://www.facebook.com/simulcast.com.np/posts/8492019283",
-      },
-      {
-        platform: "INSTAGRAM",
-        status: "PUBLISHED",
-        postId: "17928394827162",
-        postUrl: "https://www.instagram.com/p/DB19384918/",
-      },
-    ],
-    status: "PUBLISHED",
-    createdAt: "2026-10-16T16:00:00.000Z",
-    updatedAt: "2026-10-16T16:00:00.000Z",
-  },
-];
+const DEFAULT_POSTS: SocialPostItem[] = [];
 
 async function ensureDir() {
   try {
@@ -212,14 +137,11 @@ export async function postToLinkedIn({
   commentary: string;
   mediaUrl?: string;
 }): Promise<SocialPlatformResult> {
-  // If demo token, return verified simulated success
-  if (account.accessToken.includes("demo") || account.accessToken.includes("test")) {
-    const fakeId = `urn:li:share:${Date.now()}`;
+  if (!account.accessToken || account.accessToken.trim().length === 0) {
     return {
       platform: "LINKEDIN",
-      status: "PUBLISHED",
-      postId: fakeId,
-      postUrl: `https://www.linkedin.com/feed/update/${fakeId}`,
+      status: "FAILED",
+      error: "LinkedIn access token is missing. Please connect your LinkedIn account.",
     };
   }
 
@@ -347,14 +269,11 @@ export async function postToFacebook({
   message: string;
   mediaUrl?: string;
 }): Promise<SocialPlatformResult> {
-  // If demo token, return verified simulated success
-  if (account.accessToken.includes("demo") || account.accessToken.includes("test")) {
-    const fakeId = `${account.targetId}_${Date.now()}`;
+  if (!account.accessToken || account.accessToken.trim().length === 0) {
     return {
       platform: "FACEBOOK",
-      status: "PUBLISHED",
-      postId: fakeId,
-      postUrl: `https://www.facebook.com/${account.targetId}/posts/${Date.now()}`,
+      status: "FAILED",
+      error: "Facebook Page access token is missing. Please connect your Facebook Page.",
     };
   }
 
@@ -414,13 +333,11 @@ export async function postToInstagram({
   caption: string;
   mediaUrl?: string;
 }): Promise<SocialPlatformResult> {
-  if (account.accessToken.includes("demo") || account.accessToken.includes("test")) {
-    const fakeId = `ig_${Date.now()}`;
+  if (!account.accessToken || account.accessToken.trim().length === 0) {
     return {
       platform: "INSTAGRAM",
-      status: "PUBLISHED",
-      postId: fakeId,
-      postUrl: `https://www.instagram.com/p/${fakeId.slice(3, 13)}/`,
+      status: "FAILED",
+      error: "Instagram access token is missing. Please connect your account.",
     };
   }
 
@@ -595,32 +512,12 @@ export async function fetchFacebookManagedPages(userAccessToken: string): Promis
     };
   }>
 > {
-  // If demo token, return Simulcast demo pages
-  if (userAccessToken.includes("demo") || userAccessToken.includes("test")) {
-    return [
-      {
-        id: "109283749281726",
-        name: "Simulcast Technologies Pvt. Ltd.",
-        category: "Information Technology & Broadcast Solutions",
-        accessToken: "simulcast_verified_page_token",
-        fanCount: 4280,
-        instagramBusinessAccount: {
-          id: "178414029384728",
-          username: "simulcast_technologies",
-          name: "Simulcast Technologies",
-        },
-      },
-      {
-        id: "102938471625344",
-        name: "Simulcast Media & Playout NOC",
-        category: "Telecommunications & Broadcasting",
-        accessToken: "simulcast_noc_page_token",
-        fanCount: 1540,
-      },
-    ];
+  const token = (userAccessToken || "").trim();
+  if (!token) {
+    throw new Error("Meta User Access Token is required to discover your managed Facebook Pages.");
   }
 
-  const res = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,category,access_token,fan_count,instagram_business_account{id,username,name}&access_token=${userAccessToken}`);
+  const res = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,category,access_token,fan_count,instagram_business_account{id,username,name}&access_token=${encodeURIComponent(token)}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error?.message || "Failed to load managed Facebook Pages from Graph API.");
