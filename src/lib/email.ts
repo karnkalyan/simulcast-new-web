@@ -39,9 +39,51 @@ export interface EmailAttachment {
   filename: string;
   content?: string | Buffer;
   path?: string;
+  url?: string;
   contentType?: string;
   cid?: string;
   encoding?: string;
+}
+
+export function formatSimulcastEmail(content: string, title?: string): string {
+  // If already full HTML, return as-is
+  if (content.includes("<html") || content.includes("<!DOCTYPE") || (content.includes("<div") && content.includes("font-family"))) {
+    return content;
+  }
+
+  // Convert basic markdown formatting into HTML
+  let formatted = content
+    .replace(/^### (.*$)/gim, '<h3 style="color:#2b0d3a;margin:16px 0 8px;">$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2 style="color:#2b0d3a;margin:20px 0 10px;border-bottom:1px solid #eae4eb;padding-bottom:6px;">$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1 style="color:#2b0d3a;margin:24px 0 12px;">$1</h1>')
+    .replace(/\*\*(.*?)\*\*/gim, '<strong style="color:#2b0d3a;">$1</strong>')
+    .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+    .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" style="color:#e11d72;text-decoration:none;font-weight:600;">$1</a>')
+    .replace(/\n\n/gim, '</p><p style="margin:12px 0;line-height:1.6;font-size:14px;color:#3e3346;">')
+    .replace(/\n- (.*$)/gim, '<li style="margin:4px 0;line-height:1.5;">$1</li>');
+
+  if (formatted.includes("<li>")) {
+    formatted = formatted.replace(/(<li.*<\/li>)/gms, '<ul style="padding-left:20px;margin:12px 0;">$1</ul>');
+  }
+
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:680px;margin:0 auto;padding:28px 24px;border:1px solid #eae4eb;border-radius:10px;background:#ffffff;color:#2b0d3a;">
+      <div style="border-bottom:3px solid #e11d72;padding-bottom:16px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <h2 style="margin:0;color:#2b0d3a;font-size:22px;letter-spacing:-0.5px;">Simulcast Technologies</h2>
+          <p style="margin:4px 0 0;color:#e11d72;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">Engineering Critical IT, Broadcast & Telecom Infrastructure</p>
+        </div>
+      </div>
+      ${title ? `<h3 style="color:#2b0d3a;font-size:18px;margin-top:0;">${title}</h3>` : ""}
+      <div style="font-size:14px;line-height:1.6;color:#3e3346;">
+        <p style="margin:0 0 12px;line-height:1.6;font-size:14px;color:#3e3346;">${formatted}</p>
+      </div>
+      <div style="border-top:1px solid #eae4eb;margin-top:32px;padding-top:16px;font-size:12px;color:#7b6f84;line-height:1.5;">
+        <p style="margin:0;"><strong>Simulcast Technologies Pvt. Ltd.</strong></p>
+        <p style="margin:2px 0;">Kathmandu, Nepal | ✉️ <a href="mailto:support@simulcast.com.np" style="color:#e11d72;">support@simulcast.com.np</a> | 🌐 <a href="https://www.simulcast.com.np" style="color:#e11d72;">www.simulcast.com.np</a></p>
+      </div>
+    </div>
+  `;
 }
 
 export async function sendEmail({
@@ -52,6 +94,7 @@ export async function sendEmail({
   html,
   text,
   attachments,
+  variables,
 }: {
   to: string | string[];
   cc?: string | string[];
@@ -60,6 +103,7 @@ export async function sendEmail({
   html: string;
   text?: string;
   attachments?: EmailAttachment[];
+  variables?: Record<string, string>;
 }): Promise<{ ok: boolean; messageId?: string; error?: string }> {
   try {
     const mailClient = getTransporter();
@@ -67,31 +111,71 @@ export async function sendEmail({
     const ccList = cc ? (Array.isArray(cc) ? cc.join(", ") : cc) : undefined;
     const bccList = bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc) : undefined;
 
-    // Resolve local paths in attachments
-    const resolvedAttachments = attachments?.map((att) => {
-      if (att.path && (att.path.startsWith("/uploads/") || att.path.startsWith("/media/") || att.path.startsWith("/visuals/"))) {
-        const fullPath = require("path").join(process.cwd(), "public", att.path.replace(/^\//, ""));
-        return {
-          filename: att.filename,
-          path: fullPath,
-          contentType: att.contentType,
-        };
+    // Apply dynamic variables if provided
+    let finalSubject = subject;
+    let finalHtml = html;
+    if (variables && typeof variables === "object") {
+      for (const [key, val] of Object.entries(variables)) {
+        const regex = new RegExp(`{{${key}}}`, "g");
+        finalSubject = finalSubject.replace(regex, String(val ?? ""));
+        finalHtml = finalHtml.replace(regex, String(val ?? ""));
       }
-      return att;
-    });
+    }
+
+    // Format HTML if needed
+    finalHtml = formatSimulcastEmail(finalHtml);
+
+    // Resolve local paths and remote URLs in attachments asynchronously
+    const resolvedAttachments = await Promise.all(
+      (attachments || []).map(async (att) => {
+        // If remote URL is supplied, download content directly
+        if (att.url && !att.content && !att.path) {
+          try {
+            const res = await fetch(att.url);
+            if (res.ok) {
+              const arrayBuf = await res.arrayBuffer();
+              return {
+                filename: att.filename,
+                content: Buffer.from(arrayBuf),
+                contentType: att.contentType || res.headers.get("content-type") || undefined,
+              };
+            }
+          } catch (err) {
+            console.warn(`[Attachment Download Error] ${att.url}:`, err);
+          }
+        }
+
+        // If local public or upload path is supplied
+        if (
+          att.path &&
+          (att.path.startsWith("/uploads/") ||
+            att.path.startsWith("/media/") ||
+            att.path.startsWith("/visuals/") ||
+            att.path.startsWith("/brand/"))
+        ) {
+          const fullPath = require("path").join(process.cwd(), "public", att.path.replace(/^\//, ""));
+          return {
+            filename: att.filename,
+            path: fullPath,
+            contentType: att.contentType,
+          };
+        }
+        return att;
+      })
+    );
 
     const info = await mailClient.sendMail({
       from: emailFrom,
       to: recipientList,
       cc: ccList,
       bcc: bccList,
-      subject,
-      html,
-      text: text || html.replace(/<[^>]+>/g, " "),
+      subject: finalSubject,
+      html: finalHtml,
+      text: text || finalHtml.replace(/<[^>]+>/g, " ").trim(),
       attachments: resolvedAttachments,
     });
 
-    console.log(`[Email Sent] Subject: "${subject}" to: ${recipientList} (ID: ${info.messageId})`);
+    console.log(`[Email Sent] Subject: "${finalSubject}" to: ${recipientList} (ID: ${info.messageId})`);
     return { ok: true, messageId: info.messageId };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);

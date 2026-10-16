@@ -2620,21 +2620,54 @@ export async function POST(request: Request) {
         // ==========================================
         if (toolName === "send_email") {
           const to = args.to;
-          const subject = String(args.subject || "").trim();
-          const html = String(args.html || "").trim();
+          let subject = String(args.subject || "").trim();
+          let html = String(args.html || "").trim();
           const text = typeof args.text === "string" ? args.text : undefined;
           const cc = args.cc as string | string[] | undefined;
           const bcc = args.bcc as string | string[] | undefined;
           const attachments = (args.attachments || []) as EmailAttachment[];
           const shouldQueue = Boolean(args.queue) || (Array.isArray(to) && to.length > 3);
           const priority = typeof args.priority === "number" ? args.priority : 0;
+          const templateType = String(args.templateType || args.template || "").toUpperCase();
+          const variables = (args.variables || args.vars || {}) as Record<string, string>;
 
-          if (!to || !subject || !html) {
+          // Preset dynamic templates
+          if (templateType === "COMPANY_PROFILE") {
+            if (!subject) subject = "Simulcast Technologies Pvt. Ltd. — Company Profile, Products & Solutions";
+            if (!html) {
+              const clientName = variables.name || "Valued Partner";
+              html = `
+                <p>Dear <strong>${clientName}</strong>,</p>
+                <p>Thank you for your interest in <strong>Simulcast Technologies Pvt. Ltd.</strong></p>
+                <p>We engineer mission-critical RF & digital broadcast systems (DVB-T2/FM), carrier-grade optical fiber networks, bespoke SIMUL telecom software platforms, and autonomous AI enterprise agents across Nepal.</p>
+                <h4>Solutions & Capabilities:</h4>
+                <ul>
+                  <li><strong>RF & Broadcasting Engineering:</strong> Digital transmitters, STL links, combiner arrays, antenna coverage.</li>
+                  <li><strong>IPTV & OTT Playout:</strong> 24/7 master control, cloud playout, live transcoding, multi-CDN streaming.</li>
+                  <li><strong>Optical Fiber Networks & ISP:</strong> GPON/EPON OLTs, DWDM, BGP multi-homing, CGNAT, TR-069 ACS.</li>
+                  <li><strong>SIMUL Software Suite:</strong> Telecom billing, CRM, subscriber management, bandwidth provisioning.</li>
+                  <li><strong>Enterprise AI Automation:</strong> Model Context Protocol (MCP) servers, autonomous customer intelligence.</li>
+                </ul>
+                <p><strong>Simulcast Support:</strong> support@simulcast.com.np | https://www.simulcast.com.np</p>
+              `;
+            }
+          }
+
+          if (!to || (!subject && !templateType) || (!html && !templateType)) {
             return NextResponse.json({
               jsonrpc,
               id,
               error: { code: -32602, message: "'to', 'subject', and 'html' are required fields." },
             });
+          }
+
+          // Dynamic variable interpolation
+          if (variables && typeof variables === "object") {
+            for (const [k, v] of Object.entries(variables)) {
+              const regex = new RegExp(`{{${k}}}`, "g");
+              subject = subject.replace(regex, String(v ?? ""));
+              html = html.replace(regex, String(v ?? ""));
+            }
           }
 
           if (shouldQueue) {

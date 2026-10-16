@@ -57,11 +57,20 @@ export async function GET(request: Request) {
                     },
                     subject: {
                       type: "string",
-                      description: "Subject of the email",
+                      description: "Subject of the email (supports dynamic {{variables}})",
                     },
                     html: {
                       type: "string",
-                      description: "HTML content or full text body of the email",
+                      description: "HTML content or Markdown body (supports dynamic {{variables}})",
+                    },
+                    templateType: {
+                      type: "string",
+                      enum: ["COMPANY_PROFILE", "PRODUCT_PROPOSAL", "SUPPORT_TICKET", "CUSTOM"],
+                      description: "Optional preset template. Set to COMPANY_PROFILE to automatically send the official Simulcast company and solutions brochure.",
+                    },
+                    variables: {
+                      type: "object",
+                      description: "Dynamic key-value variables to interpolate into subject and body (e.g. { name: 'Kalyan', company: 'Kisan ISP' })",
                     },
                     text: {
                       type: "string",
@@ -81,20 +90,36 @@ export async function GET(request: Request) {
                     },
                     attachments: {
                       type: "array",
-                      description: "Optional array of file attachments",
+                      description: "Optional array of file attachments with dynamic local paths or remote URLs",
                       items: {
                         type: "object",
                         properties: {
-                          filename: { type: "string" },
+                          filename: { type: "string", description: "Name of the file" },
+                          url: { type: "string", description: "Remote URL of the file to attach (automatically downloaded)" },
+                          path: { type: "string", description: "Path to uploaded file asset (e.g. /uploads/...)" },
                           content: { type: "string", description: "Base64 encoded file content or text" },
-                          path: { type: "string", description: "Path to uploaded file asset" },
-                          contentType: { type: "string", description: "MIME type (e.g. application/pdf)" },
+                          contentType: { type: "string", description: "MIME type (e.g. application/pdf, image/png)" },
                         },
                         required: ["filename"],
                       },
                     },
+                    recipients: {
+                      type: "array",
+                      description: "For dynamic bulk sending: array of recipients with per-person custom subjects, bodies, variables, and attachments",
+                      items: {
+                        type: "object",
+                        properties: {
+                          email: { type: "string" },
+                          name: { type: "string" },
+                          subject: { type: "string" },
+                          html: { type: "string" },
+                          vars: { type: "object" },
+                        },
+                        required: ["email"],
+                      },
+                    },
                   },
-                  required: ["to", "subject", "html"],
+                  required: ["to"],
                 },
               },
             },

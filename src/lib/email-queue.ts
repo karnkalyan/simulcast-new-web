@@ -278,7 +278,18 @@ export async function enqueueBulkEmails({
   clientIdentity = "MCP Client",
   priority = 0,
 }: {
-  recipients: Array<string | { email: string; name?: string; vars?: Record<string, string> }>;
+  recipients: Array<
+    | string
+    | {
+        email: string;
+        name?: string;
+        subject?: string;
+        html?: string;
+        text?: string;
+        vars?: Record<string, string>;
+        attachments?: EmailAttachment[];
+      }
+  >;
   subject: string;
   html: string;
   text?: string;
@@ -294,26 +305,44 @@ export async function enqueueBulkEmails({
   status: string;
 }> {
   const batchId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const normalizedAtts = await normalizeAttachments(attachments);
+  const defaultNormalizedAtts = await normalizeAttachments(attachments);
 
   let queuedCount = 0;
   for (const r of recipients) {
-    const email = typeof r === "string" ? r.trim() : r.email.trim();
-    const name = typeof r === "string" ? "" : r.name || "";
+    const isObj = typeof r !== "string";
+    const email = (isObj ? r.email : r).trim();
+    const name = isObj ? r.name || "" : "";
     if (!email) continue;
 
-    // Template variables
-    let finalSubject = subject.replace(/{{email}}/g, email).replace(/{{name}}/g, name || email);
-    let finalHtml = html.replace(/{{email}}/g, email).replace(/{{name}}/g, name || email);
-    let finalText = text ? text.replace(/{{email}}/g, email).replace(/{{name}}/g, name || email) : undefined;
+    // Use recipient custom subject/html if provided, else batch defaults
+    let finalSubject = (isObj && r.subject ? r.subject : subject)
+      .replace(/{{email}}/g, email)
+      .replace(/{{name}}/g, name || email);
 
-    if (typeof r !== "string" && r.vars) {
+    let finalHtml = (isObj && r.html ? r.html : html)
+      .replace(/{{email}}/g, email)
+      .replace(/{{name}}/g, name || email);
+
+    let finalText = (isObj && r.text ? r.text : text)
+      ? (isObj && r.text ? r.text : text)!
+          .replace(/{{email}}/g, email)
+          .replace(/{{name}}/g, name || email)
+      : undefined;
+
+    // Per-recipient custom dynamic variables
+    if (isObj && r.vars) {
       for (const [k, v] of Object.entries(r.vars)) {
         const regex = new RegExp(`{{${k}}}`, "g");
-        finalSubject = finalSubject.replace(regex, v);
-        finalHtml = finalHtml.replace(regex, v);
-        if (finalText) finalText = finalText.replace(regex, v);
+        finalSubject = finalSubject.replace(regex, String(v ?? ""));
+        finalHtml = finalHtml.replace(regex, String(v ?? ""));
+        if (finalText) finalText = finalText.replace(regex, String(v ?? ""));
       }
+    }
+
+    // Per-recipient custom attachments or batch default
+    let itemAtts = defaultNormalizedAtts;
+    if (isObj && r.attachments && r.attachments.length > 0) {
+      itemAtts = await normalizeAttachments(r.attachments);
     }
 
     await enqueueEmail({
@@ -321,7 +350,7 @@ export async function enqueueBulkEmails({
       subject: finalSubject,
       html: finalHtml,
       text: finalText,
-      attachments: normalizedAtts,
+      attachments: itemAtts,
       priority,
       batchId: batchName ? `${batchName}_${batchId}` : batchId,
       source,
