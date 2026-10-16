@@ -1,15 +1,84 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyMcpAuth } from "@/lib/mcp-auth";
-import { sendHumanEscalationNotification, sendChatTranscriptEmail } from "@/lib/email";
+import { sendHumanEscalationNotification, sendChatTranscriptEmail, sendEmail, type EmailAttachment } from "@/lib/email";
 import { generateGeminiReply } from "@/lib/gemini";
 import { guides } from "@/lib/editorial";
 import { fallbackSettings, staticServices, staticProjects } from "@/lib/constants";
+import {
+  enqueueEmail,
+  enqueueBulkEmails,
+  processEmailQueue,
+  getEmailQueue,
+  getEmailLogs,
+  retryFailedEmails,
+  clearEmailQueue,
+  recordEmailLog,
+} from "@/lib/email-queue";
+import { logAudit, getAuditLogs } from "@/lib/audit";
+import { getCustomMcpTools, executeCustomMcpTool } from "@/lib/mcp-manager";
+import { promises as fs } from "fs";
+import path from "path";
+import { randomUUID } from "crypto";
+
+async function saveImageBuffer({
+  buffer,
+  originalFilename,
+  mimeType,
+  alt = "",
+}: {
+  buffer: Buffer;
+  originalFilename?: string;
+  mimeType?: string;
+  alt?: string;
+}): Promise<{ path: string; filename: string; size: number; mimeType: string }> {
+  const formats: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/webp": "webp",
+    "image/avif": "avif",
+  };
+  let ext = mimeType ? formats[mimeType] : undefined;
+  if (!ext && originalFilename) {
+    const extMatch = originalFilename.split(".").pop()?.toLowerCase();
+    if (extMatch && ["png", "jpg", "jpeg", "webp", "avif"].includes(extMatch)) {
+      ext = extMatch === "jpeg" ? "jpg" : extMatch;
+    }
+  }
+  if (!ext) ext = "webp";
+  const finalMime = mimeType || `image/${ext === "jpg" ? "jpeg" : ext}`;
+  const filename = `${randomUUID()}.${ext}`;
+  const uploadsFolder = path.join(process.cwd(), "public", "uploads");
+  await fs.mkdir(uploadsFolder, { recursive: true });
+  await fs.writeFile(path.join(uploadsFolder, filename), buffer);
+
+  const finalPath = `/uploads/${filename}`;
+  try {
+    await prisma.mediaAsset.create({
+      data: {
+        filename: (originalFilename || filename).slice(0, 191),
+        path: finalPath,
+        mimeType: finalMime,
+        size: buffer.length,
+        alt: alt.slice(0, 255),
+      },
+    });
+  } catch {}
+
+  return {
+    path: finalPath,
+    filename: originalFilename || filename,
+    size: buffer.length,
+    mimeType: finalMime,
+  };
+}
 
 export const dynamic = "force-dynamic";
 
 // MCP Protocol Version
 const MCP_PROTOCOL_VERSION = "2024-11-05";
+
 
 // Tool Definitions (Compliant with MCP 2024-11-05 & OpenAI Apps SDK 2025/2026 specs)
 const TOOLS = [
@@ -315,7 +384,7 @@ const TOOLS = [
   },
   {
     name: "create_blog_post",
-    description: "Create and optionally publish a new insight or blog article on the website.",
+    description: "Create and optionally publish a new insight or blog article on the website with image upload or image URL.",
     scopes: ["mcp:write", "admin"],
     annotations: {
       readOnlyHint: false,
@@ -330,7 +399,10 @@ const TOOLS = [
         excerpt: { type: "string", description: "Brief executive summary of the post" },
         body: { type: "string", description: "Full markdown or text content of the article" },
         category: { type: "string", description: "Category (e.g. Broadcast engineering, Streaming technology, Telecom & ISP, Applied AI, Software & IT Consulting)" },
-        imageUrl: { type: "string", description: "Image asset path or URL" },
+        imageUrl: { type: "string", description: "Image asset path or direct URL (e.g. /uploads/image.webp or https://...)" },
+        imageBase64: { type: "string", description: "Base64 encoded image string or data URL to upload and set as the article cover image" },
+        imageFilename: { type: "string", description: "Optional filename for the uploaded image (e.g. ai-cloud-playout.png)" },
+        imageAlt: { type: "string", description: "Alt text for the image" },
         published: { type: "boolean", description: "Publish immediately or save as draft (default true)" },
       },
       required: ["title", "slug", "excerpt", "body"],
@@ -338,7 +410,7 @@ const TOOLS = [
   },
   {
     name: "update_blog_post",
-    description: "Update an existing insight/blog post by its slug or ID.",
+    description: "Update an existing insight/blog post by its slug or ID, including updating or uploading cover image.",
     scopes: ["mcp:write", "admin"],
     annotations: {
       readOnlyHint: false,
@@ -355,7 +427,9 @@ const TOOLS = [
         excerpt: { type: "string", description: "Updated excerpt" },
         body: { type: "string", description: "Updated full article body" },
         category: { type: "string", description: "Updated category" },
-        imageUrl: { type: "string", description: "Updated image URL" },
+        imageUrl: { type: "string", description: "Updated image URL or path" },
+        imageBase64: { type: "string", description: "Base64 encoded image to upload as new cover image" },
+        imageFilename: { type: "string", description: "Optional filename for the uploaded image" },
         published: { type: "boolean", description: "Set published status" },
       },
     },
@@ -607,7 +681,236 @@ const TOOLS = [
       required: ["query"],
     },
   },
+
+  // 8. MEDIA & IMAGE ASSET MANAGEMENT
+  {
+    name: "upload_media_image",
+    description: "Upload an image asset (PNG, JPG, WEBP, AVIF) to the Simulcast media library from base64 data or an external image URL, making it immediately available for insights, blog posts, services, or showcase projects.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        filename: { type: "string", description: "Desired filename (e.g. broadcast-operations.webp or insight-header.png)" },
+        data: { type: "string", description: "Base64 encoded image string or data URL (e.g. data:image/png;base64,...)" },
+        url: { type: "string", description: "External image URL to download and save into Simulcast media library" },
+        alt: { type: "string", description: "Descriptive alt text for accessibility and SEO" },
+        mimeType: { type: "string", description: "Mime type (e.g. image/webp, image/png, image/jpeg)" },
+      },
+    },
+  },
+  {
+    name: "list_media_assets",
+    description: "List uploaded images and branded media assets available in the Simulcast library.",
+    scopes: ["mcp:read"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "integer", description: "Max assets to return (default 50)" },
+      },
+    },
+  },
+
+  // 9. EMAIL DISPATCH, ATTACHMENTS & QUEUE MANAGEMENT
+  {
+    name: "send_email",
+    description: "Send an email immediately or add it to the background queue with full attachment support, CC, BCC, HTML body, and delivery logging.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        to: {
+          description: "Target email address (string or array of email strings)",
+        },
+        subject: { type: "string", description: "Email subject line" },
+        html: { type: "string", description: "HTML message content" },
+        text: { type: "string", description: "Optional plain text fallback" },
+        cc: {
+          description: "Optional CC recipients (string or array of strings)",
+        },
+        bcc: {
+          description: "Optional BCC recipients (string or array of strings)",
+        },
+        attachments: {
+          type: "array",
+          description: "Optional attachments",
+          items: {
+            type: "object",
+            properties: {
+              filename: { type: "string", description: "Name of the attached file" },
+              content: { type: "string", description: "Base64 encoded string or raw text content" },
+              path: { type: "string", description: "Local path to an uploaded asset (e.g. /uploads/...)" },
+              contentType: { type: "string", description: "MIME type (e.g. application/pdf, image/png)" },
+            },
+            required: ["filename"],
+          },
+        },
+        queue: { type: "boolean", description: "Whether to place into background queue (default false for single email, true for bulk)" },
+        priority: { type: "integer", description: "Priority level from 0 (normal) to 10 (urgent)" },
+      },
+      required: ["to", "subject", "html"],
+    },
+  },
+  {
+    name: "send_bulk_emails",
+    description: "Queue bulk emails (e.g. 100+ emails) into the Simulcast queue system with batch tracking, template variable interpolation ({{email}}, {{name}}), and attachment support.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        recipients: {
+          type: "array",
+          description: "Array of email addresses (e.g. ['client1@example.com', 'client2@example.com']) or objects with name and custom variables",
+          items: {
+            type: "object",
+            description: "Email recipient info or string",
+          },
+        },
+        subject: { type: "string", description: "Email subject line (supports {{name}} and {{email}})" },
+        html: { type: "string", description: "HTML body (supports {{name}} and {{email}})" },
+        text: { type: "string", description: "Optional plain text fallback" },
+        attachments: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              filename: { type: "string" },
+              content: { type: "string" },
+              path: { type: "string" },
+              contentType: { type: "string" },
+            },
+            required: ["filename"],
+          },
+        },
+        batchName: { type: "string", description: "Optional label for this batch (e.g. 'newsletter-october')" },
+        priority: { type: "integer", description: "Priority 0-10 (default 0)" },
+      },
+      required: ["recipients", "subject", "html"],
+    },
+  },
+  {
+    name: "get_email_queue_status",
+    description: "Get real-time statistics and records from the email queue (pending, processing, sent, failed counts).",
+    scopes: ["mcp:read", "admin"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "string", description: "Filter by status: PENDING, PROCESSING, SENT, FAILED, or ALL" },
+        batchId: { type: "string", description: "Filter by batch ID" },
+        limit: { type: "integer", description: "Max records to return (default 25)" },
+      },
+    },
+  },
+  {
+    name: "process_email_queue",
+    description: "Trigger background email queue processor to send next batch of pending emails.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        batchSize: { type: "integer", description: "Number of emails to process in this run (default 25, max 100)" },
+      },
+    },
+  },
+  {
+    name: "get_email_logs",
+    description: "Retrieve history and audit trail of sent and attempted emails with delivery status, message IDs, and diagnostics.",
+    scopes: ["mcp:read", "admin"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "string", description: "Filter by status: SENT, FAILED, QUEUED, or ALL" },
+        search: { type: "string", description: "Search term for recipient email or subject" },
+        limit: { type: "integer", description: "Max log entries to return (default 50)" },
+      },
+    },
+  },
+  {
+    name: "retry_failed_emails",
+    description: "Reset failed emails in the queue back to PENDING so they will be retried.",
+    scopes: ["mcp:write", "admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Specific queue item ID to retry (or leave empty to retry all failed)" },
+      },
+    },
+  },
+  {
+    name: "clear_email_queue",
+    description: "Clear completed or failed emails from the queue.",
+    scopes: ["admin"],
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      openAiConfirmationRequired: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "string", description: "Filter to clear: SENT, FAILED, or ALL" },
+      },
+    },
+  },
+  {
+    name: "get_audit_logs",
+    description: "Retrieve system audit trail records covering MCP calls, content modifications, media uploads, and email actions.",
+    scopes: ["mcp:read", "admin"],
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openAiConfirmationRequired: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        category: { type: "string", description: "Filter category: MCP, EMAIL, INSIGHTS, MEDIA, AUTH, or ALL" },
+        search: { type: "string", description: "Search by actor, action, or target" },
+        limit: { type: "integer", description: "Max logs to retrieve (default 50)" },
+      },
+    },
+  },
 ];
+
 
 const RESOURCES = [
   {
@@ -681,11 +984,14 @@ export async function POST(request: Request) {
       toolName === "list_blog_posts" ||
       toolName === "get_blog_post" ||
       toolName === "submit_inquiry" ||
-      toolName === "request_human_agent");
+      toolName === "request_human_agent" ||
+      toolName === "list_media_assets");
 
-  const auth = await verifyMcpAuth(request);
+  const auth = await verifyMcpAuth(request, toolName);
 
-  if (!isDiscoveryMethod && !isPublicToolCall && !auth.authenticated) {
+  const isExplicitlyDisconnected = Boolean(auth.error && auth.error.toLowerCase().includes("disconnected"));
+
+  if (isExplicitlyDisconnected || (!isDiscoveryMethod && !isPublicToolCall && !auth.authenticated)) {
     return NextResponse.json(
       {
         jsonrpc: "2.0",
@@ -770,12 +1076,27 @@ export async function POST(request: Request) {
         }
       );
 
-    case "tools/list":
+    case "tools/list": {
+      let customToolDefs: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> = [];
+      try {
+        const customTools = await getCustomMcpTools();
+        customToolDefs = customTools
+          .filter((t) => t.enabled)
+          .map((t) => ({
+            name: t.name,
+            description: `[Custom Tool / ${t.category}] ${t.description}`,
+            inputSchema: (t.parameters as Record<string, unknown>) || { type: "object", properties: {} },
+          }));
+      } catch (err) {
+        console.error("Failed to load custom tools for tools/list:", err);
+      }
+
       return NextResponse.json({
         jsonrpc,
         id,
-        result: { tools: TOOLS },
+        result: { tools: [...TOOLS, ...customToolDefs] },
       });
+    }
 
     case "resources/list":
       return NextResponse.json({
@@ -1468,8 +1789,32 @@ export async function POST(request: Request) {
           const excerpt = String(args.excerpt || "").trim();
           const bodyText = String(args.body || "").trim();
           const category = String(args.category || "Insights").trim();
-          const imageUrl = String(args.imageUrl || "/visuals/futuristic_neon_analytics_control_centre.webp");
+          let imageUrl = String(args.imageUrl || "/visuals/futuristic_neon_analytics_control_centre.webp");
           const published = args.published !== false;
+
+          // If base64 image data is provided, save it directly to /uploads/
+          if (args.imageBase64 && typeof args.imageBase64 === "string") {
+            try {
+              let cleanData = args.imageBase64.trim();
+              let detectedMime = "image/webp";
+              if (cleanData.startsWith("data:")) {
+                const semi = cleanData.indexOf(";");
+                if (semi !== -1) detectedMime = cleanData.slice(5, semi);
+                const comma = cleanData.indexOf(",");
+                if (comma !== -1) cleanData = cleanData.slice(comma + 1);
+              }
+              const buf = Buffer.from(cleanData, "base64");
+              const saved = await saveImageBuffer({
+                buffer: buf,
+                originalFilename: typeof args.imageFilename === "string" ? args.imageFilename : `${slug}.webp`,
+                mimeType: detectedMime,
+                alt: typeof args.imageAlt === "string" ? args.imageAlt : title,
+              });
+              imageUrl = saved.path;
+            } catch (err) {
+              console.warn("[create_blog_post imageBase64 save error]", err);
+            }
+          }
 
           if (!title || !slug || !excerpt || !bodyText) {
             return NextResponse.json({
@@ -1502,6 +1847,14 @@ export async function POST(request: Request) {
             },
           });
 
+          await logAudit({
+            action: "POST_CREATED",
+            category: "INSIGHTS",
+            actor: auth.identity || "MCP Client",
+            target: `/insights/${post.slug}`,
+            details: `Insight "${post.title}" saved. Image: ${imageUrl}`,
+          });
+
           return NextResponse.json({
             jsonrpc,
             id,
@@ -1509,7 +1862,7 @@ export async function POST(request: Request) {
               content: [
                 {
                   type: "text",
-                  text: `Successfully saved blog post "${post.title}" (slug: /insights/${post.slug}, ID: ${post.id}). Status: ${post.published ? "Published" : "Draft"}.`,
+                  text: `Successfully saved blog post "${post.title}" (slug: /insights/${post.slug}, ID: ${post.id}, Cover: ${post.imageUrl}). Status: ${post.published ? "Published" : "Draft"}.`,
                 },
               ],
             },
@@ -1536,7 +1889,33 @@ export async function POST(request: Request) {
           if (args.excerpt) dataToUpdate.excerpt = String(args.excerpt);
           if (args.body) dataToUpdate.body = String(args.body);
           if (args.category) dataToUpdate.category = String(args.category);
-          if (args.imageUrl) dataToUpdate.imageUrl = String(args.imageUrl);
+
+          // Handle image upload in update
+          if (args.imageBase64 && typeof args.imageBase64 === "string") {
+            try {
+              let cleanData = args.imageBase64.trim();
+              let detectedMime = "image/webp";
+              if (cleanData.startsWith("data:")) {
+                const semi = cleanData.indexOf(";");
+                if (semi !== -1) detectedMime = cleanData.slice(5, semi);
+                const comma = cleanData.indexOf(",");
+                if (comma !== -1) cleanData = cleanData.slice(comma + 1);
+              }
+              const buf = Buffer.from(cleanData, "base64");
+              const saved = await saveImageBuffer({
+                buffer: buf,
+                originalFilename: typeof args.imageFilename === "string" ? args.imageFilename : `${existing.slug}.webp`,
+                mimeType: detectedMime,
+                alt: String(args.title || existing.title),
+              });
+              dataToUpdate.imageUrl = saved.path;
+            } catch (err) {
+              console.warn("[update_blog_post imageBase64 save error]", err);
+            }
+          } else if (args.imageUrl) {
+            dataToUpdate.imageUrl = String(args.imageUrl);
+          }
+
           if (typeof args.published === "boolean") {
             dataToUpdate.published = args.published;
             if (args.published) dataToUpdate.publishedAt = new Date();
@@ -1547,11 +1926,19 @@ export async function POST(request: Request) {
             data: dataToUpdate,
           });
 
+          await logAudit({
+            action: "POST_UPDATED",
+            category: "INSIGHTS",
+            actor: auth.identity || "MCP Client",
+            target: `/insights/${updated.slug}`,
+            details: `Insight "${updated.title}" updated. Image: ${updated.imageUrl}`,
+          });
+
           return NextResponse.json({
             jsonrpc,
             id,
             result: {
-              content: [{ type: "text", text: `Post "${updated.title}" (slug: /insights/${updated.slug}) updated successfully.` }],
+              content: [{ type: "text", text: `Post "${updated.title}" (slug: /insights/${updated.slug}, Cover: ${updated.imageUrl}) updated successfully.` }],
             },
           });
         }
@@ -2034,6 +2421,467 @@ export async function POST(request: Request) {
                 {
                   type: "text",
                   text: reply.text,
+                },
+              ],
+            },
+          });
+        }
+
+        // ==========================================
+        // 8. MEDIA & IMAGE ASSET MANAGEMENT
+        // ==========================================
+        if (toolName === "upload_media_image") {
+          let buffer: Buffer | null = null;
+          let filename = typeof args.filename === "string" ? args.filename.trim() : "";
+          let mimeType = typeof args.mimeType === "string" ? args.mimeType.trim() : "";
+          const alt = typeof args.alt === "string" ? args.alt.trim() : "";
+
+          // Option A: Base64 data string
+          if (args.data && typeof args.data === "string") {
+            let clean = args.data.trim();
+            if (clean.startsWith("data:")) {
+              const semi = clean.indexOf(";");
+              if (semi !== -1 && !mimeType) mimeType = clean.slice(5, semi);
+              const comma = clean.indexOf(",");
+              if (comma !== -1) clean = clean.slice(comma + 1);
+            }
+            buffer = Buffer.from(clean, "base64");
+          } else if (args.url && typeof args.url === "string") {
+            // Option B: Download from remote URL
+            const res = await fetch(args.url.trim());
+            if (!res.ok) {
+              return NextResponse.json({
+                jsonrpc,
+                id,
+                error: { code: -32602, message: `Failed to download image from ${args.url}: HTTP ${res.status}` },
+              });
+            }
+            const arrayBuf = await res.arrayBuffer();
+            buffer = Buffer.from(arrayBuf);
+            if (!mimeType) {
+              const ct = res.headers.get("content-type");
+              if (ct && ct.startsWith("image/")) mimeType = ct;
+            }
+            if (!filename) {
+              try {
+                const parsedUrl = new URL(args.url);
+                filename = path.basename(parsedUrl.pathname) || "downloaded-image.webp";
+              } catch {
+                filename = "downloaded-image.webp";
+              }
+            }
+          }
+
+          if (!buffer || buffer.length === 0) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "Either 'data' (base64 string) or 'url' (image link) must be provided." },
+            });
+          }
+
+          if (!filename) filename = `image_${Date.now()}.webp`;
+
+          const saved = await saveImageBuffer({
+            buffer,
+            originalFilename: filename,
+            mimeType: mimeType || undefined,
+            alt,
+          });
+
+          await logAudit({
+            action: "MEDIA_UPLOADED",
+            category: "MEDIA",
+            actor: auth.identity || "MCP Client",
+            target: saved.path,
+            details: `Uploaded ${saved.filename} (${Math.round(saved.size / 1024)} KB) via MCP`,
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(
+                    {
+                      success: true,
+                      url: saved.path,
+                      filename: saved.filename,
+                      sizeBytes: saved.size,
+                      sizeKb: Math.round(saved.size / 1024),
+                      mimeType: saved.mimeType,
+                      alt,
+                      message: `Image successfully uploaded to ${saved.path}. You can use this URL for blog posts, services, or hero images.`,
+                    },
+                    null,
+                    2
+                  ),
+                },
+              ],
+            },
+          });
+        }
+
+        if (toolName === "list_media_assets") {
+          const limit = typeof args.limit === "number" ? Math.min(Math.max(1, args.limit), 100) : 50;
+          let assets: Array<Record<string, unknown>> = [];
+          try {
+            assets = (await prisma.mediaAsset.findMany({
+              orderBy: { createdAt: "desc" },
+              take: limit,
+            })) as unknown as Array<Record<string, unknown>>;
+          } catch {}
+
+          const bundledVisuals = [
+            { path: "/visuals/neon_himalayan_broadcast_control_room.webp", filename: "Broadcast Control Room", mimeType: "image/webp" },
+            { path: "/visuals/neon_broadcast_operations_centre.webp", filename: "Operations Centre", mimeType: "image/webp" },
+            { path: "/visuals/futuristic_neon_analytics_control_centre.webp", filename: "Analytics & Monitoring", mimeType: "image/webp" },
+            { path: "/visuals/futuristic_purple_analytics_dashboard_ecosystem.webp", filename: "Ecosystem Dashboard", mimeType: "image/webp" },
+          ];
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({ uploadedAssets: assets, bundledVisuals }, null, 2),
+                },
+              ],
+            },
+          });
+        }
+
+        // ==========================================
+        // 9. EMAIL DISPATCH & QUEUE SYSTEM
+        // ==========================================
+        if (toolName === "send_email") {
+          const to = args.to;
+          const subject = String(args.subject || "").trim();
+          const html = String(args.html || "").trim();
+          const text = typeof args.text === "string" ? args.text : undefined;
+          const cc = args.cc as string | string[] | undefined;
+          const bcc = args.bcc as string | string[] | undefined;
+          const attachments = (args.attachments || []) as EmailAttachment[];
+          const shouldQueue = Boolean(args.queue) || (Array.isArray(to) && to.length > 3);
+          const priority = typeof args.priority === "number" ? args.priority : 0;
+
+          if (!to || !subject || !html) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "'to', 'subject', and 'html' are required fields." },
+            });
+          }
+
+          if (shouldQueue) {
+            const queuedItem = await enqueueEmail({
+              to: to as string | string[],
+              cc,
+              bcc,
+              subject,
+              html,
+              text,
+              attachments,
+              priority,
+              source: "MCP",
+              clientIdentity: auth.identity || "MCP Client",
+            });
+
+            await logAudit({
+              action: "EMAIL_QUEUED",
+              category: "EMAIL",
+              actor: auth.identity || "MCP Client",
+              target: String(queuedItem.to),
+              details: `Queued email #${queuedItem.id} with subject "${subject}" (priority: ${priority})`,
+            });
+
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify(
+                      {
+                        status: "QUEUED",
+                        queueItemId: queuedItem.id,
+                        to: queuedItem.to,
+                        subject: queuedItem.subject,
+                        priority: queuedItem.priority,
+                        scheduledAt: queuedItem.scheduledAt,
+                        message: `Email added to Simulcast delivery queue (ID: ${queuedItem.id}). Will be processed by queue worker.`,
+                      },
+                      null,
+                      2
+                    ),
+                  },
+                ],
+              },
+            });
+          } else {
+            // Direct Immediate Send
+            const sendRes = await sendEmail({
+              to: to as string | string[],
+              cc,
+              bcc,
+              subject,
+              html,
+              text,
+              attachments,
+            });
+
+            await recordEmailLog({
+              to: Array.isArray(to) ? to.join(", ") : String(to),
+              subject,
+              status: sendRes.ok ? "SENT" : "FAILED",
+              source: "MCP",
+              messageId: sendRes.messageId,
+              error: sendRes.error,
+              hasAttachments: attachments.length > 0,
+              attachmentNames: attachments.map((a) => a.filename).join(", "),
+              clientIdentity: auth.identity || "MCP Client",
+            });
+
+            await logAudit({
+              action: "EMAIL_DIRECT_SENT",
+              category: "EMAIL",
+              actor: auth.identity || "MCP Client",
+              target: Array.isArray(to) ? to.join(", ") : String(to),
+              details: `Immediate send subject "${subject}". Status: ${sendRes.ok ? "SUCCESS" : "FAILED"}`,
+              status: sendRes.ok ? "SUCCESS" : "FAILED",
+            });
+
+            if (!sendRes.ok) {
+              return NextResponse.json({
+                jsonrpc,
+                id,
+                result: {
+                  content: [
+                    {
+                      type: "text",
+                      text: JSON.stringify(
+                        {
+                          status: "FAILED",
+                          error: sendRes.error,
+                          message: "Email sending failed; log recorded in system.",
+                        },
+                        null,
+                        2
+                      ),
+                    },
+                  ],
+                },
+              });
+            }
+
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify(
+                      {
+                        status: "SENT",
+                        messageId: sendRes.messageId,
+                        to,
+                        subject,
+                        message: `Email successfully dispatched via SMTP (Message-ID: ${sendRes.messageId}).`,
+                      },
+                      null,
+                      2
+                    ),
+                  },
+                ],
+              },
+            });
+          }
+        }
+
+        if (toolName === "send_bulk_emails") {
+          const recipients = args.recipients as Array<string | { email: string; name?: string; vars?: Record<string, string> }>;
+          const subject = String(args.subject || "").trim();
+          const html = String(args.html || "").trim();
+          const text = typeof args.text === "string" ? args.text : undefined;
+          const attachments = (args.attachments || []) as EmailAttachment[];
+          const batchName = typeof args.batchName === "string" ? args.batchName.trim() : undefined;
+          const priority = typeof args.priority === "number" ? args.priority : 0;
+
+          if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "'recipients' must be a non-empty array of email addresses or objects." },
+            });
+          }
+
+          if (!subject || !html) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32602, message: "'subject' and 'html' are required." },
+            });
+          }
+
+          const bulkResult = await enqueueBulkEmails({
+            recipients,
+            subject,
+            html,
+            text,
+            attachments,
+            batchName,
+            source: "MCP",
+            clientIdentity: auth.identity || "MCP Client",
+            priority,
+          });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(
+                    {
+                      ...bulkResult,
+                      message: `Successfully enqueued ${bulkResult.totalQueued} emails into the queue under batch '${bulkResult.batchId}'. View and process them via MCP or Admin Panel at /admin/email.`,
+                    },
+                    null,
+                    2
+                  ),
+                },
+              ],
+            },
+          });
+        }
+
+        if (toolName === "get_email_queue_status") {
+          const status = typeof args.status === "string" ? args.status : undefined;
+          const batchId = typeof args.batchId === "string" ? args.batchId : undefined;
+          const limit = typeof args.limit === "number" ? args.limit : 25;
+
+          const queueData = await getEmailQueue({ status, batchId, limit });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(queueData, null, 2) }],
+            },
+          });
+        }
+
+        if (toolName === "process_email_queue") {
+          const batchSize = typeof args.batchSize === "number" ? Math.min(Math.max(1, args.batchSize), 100) : 25;
+          const processResult = await processEmailQueue(batchSize);
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(
+                    {
+                      summary: `Processed ${processResult.processed} queue items: ${processResult.sent} sent, ${processResult.failed} failed.`,
+                      details: processResult,
+                    },
+                    null,
+                    2
+                  ),
+                },
+              ],
+            },
+          });
+        }
+
+        if (toolName === "get_email_logs") {
+          const status = typeof args.status === "string" ? args.status : undefined;
+          const search = typeof args.search === "string" ? args.search : undefined;
+          const limit = typeof args.limit === "number" ? args.limit : 50;
+
+          const logs = await getEmailLogs({ status, search, limit });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(logs, null, 2) }],
+            },
+          });
+        }
+
+        if (toolName === "retry_failed_emails") {
+          const targetId = typeof args.id === "string" ? args.id.trim() : undefined;
+          const res = await retryFailedEmails(targetId);
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Reset ${res.retried} failed emails back to PENDING status.` }],
+            },
+          });
+        }
+
+        if (toolName === "clear_email_queue") {
+          const status = typeof args.status === "string" ? (args.status as "SENT" | "FAILED" | "ALL") : "ALL";
+          const res = await clearEmailQueue(status);
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: `Cleared ${res.cleared} items from email queue.` }],
+            },
+          });
+        }
+
+        if (toolName === "get_audit_logs") {
+          const category = typeof args.category === "string" ? args.category : undefined;
+          const search = typeof args.search === "string" ? args.search : undefined;
+          const limit = typeof args.limit === "number" ? args.limit : 50;
+
+          const logs = await getAuditLogs({ category, search, limit });
+
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(logs, null, 2) }],
+            },
+          });
+        }
+
+
+        // ==========================================
+        // 12. DYNAMIC CUSTOM MCP TOOLS (ADMIN CONFIGURABLE)
+        // ==========================================
+        const customRes = await executeCustomMcpTool(toolName || "", args, auth.identity || "MCP Client");
+        if (customRes.ok || (customRes.error && !customRes.error.includes("not found or is currently disabled"))) {
+          if (!customRes.ok) {
+            return NextResponse.json({
+              jsonrpc,
+              id,
+              error: { code: -32000, message: customRes.error || "Custom tool execution failed." },
+            });
+          }
+          return NextResponse.json({
+            jsonrpc,
+            id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: typeof customRes.result === "string" ? customRes.result : JSON.stringify(customRes.result, null, 2),
                 },
               ],
             },

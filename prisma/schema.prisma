@@ -201,3 +201,132 @@ model CustomRoute {
   @@index([enabled])
 }
 
+enum EmailStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model EmailQueueItem {
+  id          String      @id @default(cuid())
+  to          String      @db.VarChar(255)
+  cc          String?     @db.VarChar(255)
+  bcc         String?     @db.VarChar(255)
+  subject     String      @db.VarChar(255)
+  html        String      @db.LongText
+  text        String?     @db.Text
+  attachments String?     @db.LongText
+  status      EmailStatus @default(PENDING)
+  attempts    Int         @default(0)
+  maxAttempts Int         @default(3)
+  priority    Int         @default(0)
+  batchId     String?     @db.VarChar(64)
+  source      String      @default("MCP") @db.VarChar(64)
+  scheduledAt DateTime    @default(now())
+  sentAt      DateTime?
+  failedAt    DateTime?
+  lastError   String?     @db.Text
+  messageId   String?     @db.VarChar(191)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([status])
+  @@index([batchId])
+  @@index([scheduledAt])
+  @@index([createdAt])
+}
+
+model EmailLog {
+  id              String   @id @default(cuid())
+  queueItemId     String?  @db.VarChar(64)
+  to              String   @db.VarChar(255)
+  subject         String   @db.VarChar(255)
+  status          String   @default("SENT") @db.VarChar(32)
+  source          String   @default("MCP") @db.VarChar(64)
+  messageId       String?  @db.VarChar(191)
+  error           String?  @db.Text
+  hasAttachments  Boolean  @default(false)
+  attachmentNames String?  @db.VarChar(255)
+  clientIdentity  String?  @db.VarChar(191)
+  createdAt       DateTime @default(now())
+
+  @@index([to])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   @db.VarChar(64)
+  category  String   @default("MCP") @db.VarChar(32)
+  actor     String   @default("system") @db.VarChar(191)
+  target    String?  @db.VarChar(255)
+  details   String?  @db.Text
+  ipAddress String?  @db.VarChar(64)
+  status    String   @default("SUCCESS") @db.VarChar(32)
+  createdAt DateTime @default(now())
+
+  @@index([action])
+  @@index([category])
+  @@index([createdAt])
+}
+
+
+model McpConnection {
+  id           String    @id @default(cuid())
+  clientName   String    @db.VarChar(191)
+  clientId     String    @unique @db.VarChar(191)
+  token        String    @db.LongText
+  tokenPrefix  String    @db.VarChar(64)
+  role         String    @default("MCP_CLIENT") @db.VarChar(64)
+  scopes       String    @default("all") @db.VarChar(255)
+  status       String    @default("CONNECTED") @db.VarChar(32) // CONNECTED, DISCONNECTED
+  ipAddress    String?   @db.VarChar(64)
+  userAgent    String?   @db.VarChar(255)
+  requestCount Int       @default(0)
+  lastTool     String?   @db.VarChar(128)
+  expiresAt    DateTime?
+  lastActiveAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([status])
+  @@index([tokenPrefix])
+}
+
+model McpConnectionLog {
+  id           String   @id @default(cuid())
+  connectionId String?  @db.VarChar(64)
+  clientName   String   @db.VarChar(191)
+  event        String   @db.VarChar(64) // AUTHORIZE, CONNECT, TOOL_CALL, DISCONNECT, RECONNECT, BLOCKED
+  toolName     String?  @db.VarChar(128)
+  status       String   @default("SUCCESS") @db.VarChar(32) // SUCCESS, FAILED, REVOKED
+  ipAddress    String?  @db.VarChar(64)
+  details      String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([connectionId])
+  @@index([event])
+  @@index([createdAt])
+}
+
+model McpCustomTool {
+  id            String    @id @default(cuid())
+  name          String    @unique @db.VarChar(128)
+  title         String    @db.VarChar(191)
+  description   String    @db.Text
+  category      String    @default("Custom") @db.VarChar(64)
+  enabled       Boolean   @default(true)
+  parameters    String    @db.LongText // JSON schema
+  handlerType   String    @default("WEBHOOK") @db.VarChar(64) // WEBHOOK, DYNAMIC_TEMPLATE, EMAIL_ALERT, DATABASE_QUERY
+  handlerConfig String    @db.LongText // JSON config
+  runCount      Int       @default(0)
+  lastRunAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([enabled])
+}
+

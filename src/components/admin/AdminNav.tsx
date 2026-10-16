@@ -16,6 +16,8 @@ import {
   Palette,
   KeyRound,
   Route as RouteIcon,
+  Mail,
+  ShieldCheck,
 } from 'lucide-react';
 
 const iconMap: Record<string, React.ComponentType<{ size: number }>> = {
@@ -27,8 +29,10 @@ const iconMap: Record<string, React.ComponentType<{ size: number }>> = {
   Insights: NotebookText,
   Inquiries: MessagesSquare,
   'Media Library': ImageIcon,
+  'Email & Queue': Mail,
   'Brand & Themes': Palette,
   'MCP & Security': KeyRound,
+  'Audit Logs': ShieldCheck,
   'Site Settings': Settings,
   'Admin Users': Users,
 };

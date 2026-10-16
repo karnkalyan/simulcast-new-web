@@ -21,10 +21,12 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
     {l:"Insights",href:"/admin/posts"},
     {l:"Inquiries",href:"/admin/inquiries"},
     {l:"Media Library",href:"/admin/media"},
+    {l:"Email & Queue",href:"/admin/email"},
     {l:"Custom Routes",href:"/admin/custom-routes"},
     ...(user.role==="ADMIN"?[
       {l:"Brand & Themes",href:"/admin/theme"},
       {l:"MCP & Security",href:"/admin/mcp"},
+      {l:"Audit Logs",href:"/admin/audit"},
       {l:"Site Settings",href:"/admin/settings"},
       {l:"Admin Users",href:"/admin/users"}
     ]:[])

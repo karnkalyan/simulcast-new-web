@@ -27,32 +27,68 @@ function getTransporter() {
       tls: {
         rejectUnauthorized: false,
       },
+      connectionTimeout: 8000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000,
     });
   }
   return transporter;
 }
 
+export interface EmailAttachment {
+  filename: string;
+  content?: string | Buffer;
+  path?: string;
+  contentType?: string;
+  cid?: string;
+  encoding?: string;
+}
+
 export async function sendEmail({
   to,
+  cc,
+  bcc,
   subject,
   html,
   text,
+  attachments,
 }: {
   to: string | string[];
+  cc?: string | string[];
+  bcc?: string | string[];
   subject: string;
   html: string;
   text?: string;
+  attachments?: EmailAttachment[];
 }): Promise<{ ok: boolean; messageId?: string; error?: string }> {
   try {
     const mailClient = getTransporter();
     const recipientList = Array.isArray(to) ? to.join(", ") : to;
+    const ccList = cc ? (Array.isArray(cc) ? cc.join(", ") : cc) : undefined;
+    const bccList = bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc) : undefined;
+
+    // Resolve local paths in attachments
+    const resolvedAttachments = attachments?.map((att) => {
+      if (att.path && (att.path.startsWith("/uploads/") || att.path.startsWith("/media/") || att.path.startsWith("/visuals/"))) {
+        const fullPath = require("path").join(process.cwd(), "public", att.path.replace(/^\//, ""));
+        return {
+          filename: att.filename,
+          path: fullPath,
+          contentType: att.contentType,
+        };
+      }
+      return att;
+    });
 
     const info = await mailClient.sendMail({
       from: emailFrom,
       to: recipientList,
+      cc: ccList,
+      bcc: bccList,
       subject,
       html,
       text: text || html.replace(/<[^>]+>/g, " "),
+      attachments: resolvedAttachments,
     });
 
     console.log(`[Email Sent] Subject: "${subject}" to: ${recipientList} (ID: ${info.messageId})`);
@@ -60,10 +96,10 @@ export async function sendEmail({
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.warn(`[Email Delivery Notice] Failed sending email via SMTP: ${errorMsg}`);
-    // Return gracefully so the application continues to function smoothly
     return { ok: false, error: errorMsg };
   }
 }
+
 
 /**
  * Triggers an immediate alert to info@simulcast.com.np and support@simulcast.com.np

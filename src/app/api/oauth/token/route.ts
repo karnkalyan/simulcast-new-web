@@ -30,11 +30,16 @@ export async function POST(request: Request) {
     } catch {}
   }
 
+  const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "127.0.0.1";
+  const userAgent = request.headers.get("user-agent") || "ChatGPT-Client";
+
   // Generate an authorized JWT access token valid for 30 days tied to the authenticated user
   const accessToken = await createMcpToken({
     name: clientIdentity,
     role: clientRole,
     expiresIn: "30d",
+    ipAddress,
+    userAgent,
   });
 
   return NextResponse.json(
