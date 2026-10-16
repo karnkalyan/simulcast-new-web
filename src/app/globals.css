@@ -167,3 +167,10 @@ body{font-family:Arial,"Helvetica Neue",Helvetica,sans-serif;color:var(--v2-ink)
   gap: 10px !important;
 }
 
+/* Ensure notifications & toasts always float visibly above modals */
+[data-hot-toast],
+div:has(> [data-hot-toast]),
+div:has(> div > [role="status"]) {
+  z-index: 99999999 !important;
+}
+

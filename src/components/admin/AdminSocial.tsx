@@ -95,7 +95,7 @@ export default function AdminSocial() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // LinkedIn Connect Form
-  const [liClientId, setLiClientId] = useState("");
+  const [liClientId, setLiClientId] = useState("8629t1e7shscbw");
   const [liClientSecret, setLiClientSecret] = useState("");
   const [liAccountName, setLiAccountName] = useState("");
   const [liOrgUrn, setLiOrgUrn] = useState("");
@@ -104,7 +104,7 @@ export default function AdminSocial() {
   const [liUseOpenId, setLiUseOpenId] = useState(false);
 
   // Facebook Connect & Page Selection Flow
-  const [fbAppId, setFbAppId] = useState("");
+  const [fbAppId, setFbAppId] = useState("276100238625968");
   const [fbAppSecret, setFbAppSecret] = useState("");
   const [fbUserToken, setFbUserToken] = useState("");
   const [fbLoadingPages, setFbLoadingPages] = useState(false);
@@ -1512,7 +1512,7 @@ export default function AdminSocial() {
                     <div style={{ fontSize: 10, color: "#64748b", marginTop: 8 }}>
                       Valid OAuth Redirect URI to register in Facebook Login settings:
                       <code style={{ display: "block", background: "#ffffff", padding: "2px 6px", borderRadius: 3, marginTop: 2, wordBreak: "break-all" }}>
-                        {typeof window !== "undefined" ? window.location.origin : "https://www.simulcast.com.np"}/api/social/callback/facebook
+                        {typeof window !== "undefined" ? window.location.origin : "https://simulcast.com.np"}/api/social/callback/facebook
                       </code>
                     </div>
                   </div>
@@ -1531,7 +1531,7 @@ export default function AdminSocial() {
                       type="password"
                       value={fbUserToken}
                       onChange={(e) => setFbUserToken(e.target.value)}
-                      placeholder="Paste User Access Token (e.g. EAAB...)"
+                      placeholder="Paste User Access Token (e.g. EAAD7H...)"
                       style={{ width: "100%", padding: "10px", border: "1px solid #dcd4e1", borderRadius: 4, fontSize: 12 }}
                     />
                   </div>
@@ -1567,10 +1567,20 @@ export default function AdminSocial() {
                   </div>
 
                   {fbDiscoveredPages.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "24px 16px", background: "#f8fafd", borderRadius: 8, color: "#64748b", fontSize: 12 }}>
-                      No Facebook Pages found associated with this user access token.
-                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
-                        Ensure your user account is an Administrator or Task editor of the Facebook Business Page.
+                    <div style={{ textAlign: "center", padding: "20px 16px", background: "#fffbeb", border: "1px solid #fef3c7", borderRadius: 8, color: "#92400e", fontSize: 12, lineHeight: 1.6 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: "#b45309" }}>No Facebook Pages Returned</div>
+                      This user token does not have <code>pages_show_list</code> permission, or your Meta user account does not administer any published Pages yet.
+                      <div style={{ marginTop: 8, fontSize: 11, color: "#78350f" }}>
+                        In Meta Graph API Explorer: Under <strong>Permissions</strong>, click <strong>Add a Permission</strong> &gt; <strong>Events, Groups &amp; Pages</strong> &gt; select <strong>pages_show_list</strong> and <strong>pages_manage_posts</strong>, then click <strong>Generate Access Token</strong>.
+                      </div>
+                      <div style={{ marginTop: 12 }}>
+                        <button
+                          type="button"
+                          onClick={() => setFbStep("TOKEN")}
+                          className="btn btn-outline btn-xs"
+                        >
+                          Try Another Token
+                        </button>
                       </div>
                     </div>
                   ) : (

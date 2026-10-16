@@ -7,9 +7,15 @@ export default function ToastProvider() {
   return (
     <Toaster
       position="top-right"
+      containerStyle={{
+        zIndex: 9999999,
+        top: 20,
+        right: 20,
+      }}
       toastOptions={{
-        duration: 4000,
+        duration: 5000,
         style: {
+          zIndex: 9999999,
           background: "#2b0d3a",
           color: "#ffffff",
           border: "1px solid #e11d72",

@@ -524,7 +524,30 @@ export async function fetchFacebookManagedPages(userAccessToken: string): Promis
   }
 
   const data = await res.json();
-  return (data.data || []).map((p: any) => ({
+  const rawPages = data.data || [];
+
+  if (rawPages.length === 0) {
+    try {
+      const permRes = await fetch(`https://graph.facebook.com/v19.0/me/permissions?access_token=${encodeURIComponent(token)}`);
+      if (permRes.ok) {
+        const permData = await permRes.json();
+        const granted = (permData.data || [])
+          .filter((p: any) => p.status === "granted")
+          .map((p: any) => p.permission);
+        if (!granted.includes("pages_show_list")) {
+          throw new Error(
+            `Token is missing 'pages_show_list' permission (currently granted: ${granted.join(", ") || "none"}). In Meta Graph API Explorer, click 'Add a Permission' > Events, Groups & Pages > select 'pages_show_list' & 'pages_manage_posts', then click 'Generate Access Token'.`
+          );
+        }
+      }
+    } catch (permErr: any) {
+      if (permErr?.message && permErr.message.includes("Token is missing")) {
+        throw permErr;
+      }
+    }
+  }
+
+  return rawPages.map((p: any) => ({
     id: p.id,
     name: p.name,
     category: p.category || "Company",
