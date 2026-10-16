@@ -18,6 +18,7 @@ import {
   Route as RouteIcon,
   Mail,
   ShieldCheck,
+  Building2,
 } from 'lucide-react';
 
 const iconMap: Record<string, React.ComponentType<{ size: number }>> = {
@@ -28,6 +29,7 @@ const iconMap: Record<string, React.ComponentType<{ size: number }>> = {
   Projects: FolderKanban,
   Insights: NotebookText,
   Inquiries: MessagesSquare,
+  'Clients & Vendors': Building2,
   'Media Library': ImageIcon,
   'Email & Queue': Mail,
   'Brand & Themes': Palette,

@@ -20,6 +20,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
     {l:"Projects",href:"/admin/projects"},
     {l:"Insights",href:"/admin/posts"},
     {l:"Inquiries",href:"/admin/inquiries"},
+    {l:"Clients & Vendors",href:"/admin/clients-vendors"},
     {l:"Media Library",href:"/admin/media"},
     {l:"Email & Queue",href:"/admin/email"},
     {l:"Custom Routes",href:"/admin/custom-routes"},

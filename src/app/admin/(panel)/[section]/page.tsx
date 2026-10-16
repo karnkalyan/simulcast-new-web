@@ -9,6 +9,7 @@ import AdminMcp from "@/components/admin/AdminMcp";
 import AdminCustomRoutes from "@/components/admin/AdminCustomRoutes";
 import AdminEmailQueue from "@/components/admin/AdminEmailQueue";
 import AdminAuditLogs from "@/components/admin/AdminAuditLogs";
+import AdminClientsVendors from "@/components/admin/AdminClientsVendors";
 
 export const dynamic="force-dynamic";
 
@@ -18,6 +19,7 @@ export default async function Section({params}:{params:Promise<{section:string}>
 
   if(section==="chat") return <AdminChat/>;
   if(section==="custom-routes"||section==="routes") return <AdminCustomRoutes/>;
+  if(section==="clients-vendors"||section==="clients"||section==="vendors") return <AdminClientsVendors/>;
   if(section==="email"||section==="email-queue"||section==="emails") return <AdminEmailQueue/>;
   if(section==="audit"||section==="audit-logs"){
     if(user.role!=="ADMIN") notFound();
